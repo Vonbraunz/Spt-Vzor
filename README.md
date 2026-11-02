@@ -101,7 +101,7 @@ Plain `dotnet build` compiles to `dist` without deploying.
 ## Known issues
 
 - **No recoil after spawn.** The first weapon of a raid may keep its recoil until you swap weapons. Two recoil pipelines exist and the fix for the other one made things worse, so it is parked. Swap once and it behaves.
-- **Instant search may be partial.** The upstream approach patches `ContainsUnknownItems`, but that method shares its native body with hundreds of others and detouring it crashes the game at boot. Only the safe patches remain, so contents may not always reveal.
+- **Instant search is confirmed working on SPT 5.0.** The upstream mod also patches `ContainsUnknownItems`, but that method shares its native body with hundreds of others and detouring it crashes the game at boot. It turns out the three safe patches are sufficient, so that one is deliberately omitted.
 - **Prices are a snapshot.** The flea table comes from a community project and will drift. Missing entries fall back to the item template price, which is lower.
 - **Container contents counts** rely on `ItemExtensions.GetAllItems`. Nested grids are usually included, but treat the totals as approximate until you have compared a few against what you actually find.
 - **Fonts.** Cyrillic renders through Segoe UI. CJK nicknames may come out as blanks.
