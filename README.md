@@ -4,7 +4,7 @@ A BepInEx 6 plugin for the **IL2CPP** build of SPT 5.0 (EFT 1.2.0.47965, Unity 2
 
 Offline single-player only. There is no anti-cheat bypass, no injector, and nothing here is designed for live EFT.
 
-Config-driven, no hotkeys. Edit `BepInEx\config\local.vzor.cfg`, save, and the change applies about a second later.
+Config-driven. Two keys exist: `Insert` opens the in-game menu, and `Aim Key` (LeftControl by default) is the aimbot trigger. Everything can also be edited in `BepInEx\config\local.vzor.cfg`; changes apply about a second after saving.
 
 ## Features
 
@@ -26,10 +26,15 @@ Config-driven, no hotkeys. Edit `BepInEx\config\local.vzor.cfg`, save, and the c
 - **Distance rules:** normal loot, containers and corpses are limited to `Loot Distance` (10 m default). High value, quest and wishlist items ignore the limit entirely.
 - Frustum check and optional line-of-sight check.
 - Container contents: item count and total value, read within 10 m, refreshed every 10 s.
+- Quest progress appended to quest item labels, e.g. `[3/5]`, from your active quest counters.
 - Label stacking so overlapping text steps upward instead of piling up.
 - Extracts with open/closed colouring, always labelled.
 - Quest zones: place item, place beacon, stay in zone, visit a place.
 - Live grenades, tracked every frame, drawn as a large red dot.
+
+### In-game menu
+
+`Insert` opens a generic config menu. It enumerates every entry in the config file and renders a widget by type (toggle for bools, sliders for ranged numbers, text fields for strings), so new settings appear without any menu code. The cursor is released while it is open and restored on close. The window is draggable by its title bar.
 
 ### Aimbot
 
@@ -74,7 +79,7 @@ Launch SPT normally. The plugin logs `Vzor 0.5.0 loaded. config only, no hotkeys
 
 ## Configuration
 
-Everything lives in `BepInEx\config\local.vzor.cfg`. The plugin watches the file and reloads on change, roughly one second after saving. There are no hotkeys, deliberately: function keys collide with too much.
+Everything lives in `BepInEx\config\local.vzor.cfg`. The plugin watches the file and reloads on change, roughly one second after saving. There are only two keys: `Insert` for the menu and the aimbot hold key. Function keys are left alone because they collide with too much.
 
 Sections:
 
@@ -82,6 +87,7 @@ Sections:
 - `[Loot ESP]` distances, categories, colours, filters, exfils, zones, grenades.
 - `[QoL]` stamina, recoil, sway, malfunction, instant search.
 - `[Aimbot]` enabled, aim key, FOV, distance, smoothing, magic bullet.
+- `[Menu]` the in-game menu toggle key.
 
 One trap worth knowing: if you edit the file while the game is running and then press a key that saves config, the save can overwrite your edit. There are no config-saving hotkeys any more, so in practice: edit, save, done.
 

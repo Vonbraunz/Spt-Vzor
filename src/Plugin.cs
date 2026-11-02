@@ -102,6 +102,7 @@ namespace Vzor
         internal static ConfigEntry<bool> QolInstantSearch;
         internal static ConfigEntry<bool> AimEnabled;
         internal static ConfigEntry<KeyCode> AimKey;
+        internal static ConfigEntry<KeyCode> MenuKey;
         internal static ConfigEntry<float> AimFov;
         internal static ConfigEntry<float> AimDistance;
         internal static ConfigEntry<float> AimSmooth;
@@ -315,7 +316,9 @@ namespace Vzor
                 "aim at the closest enemy inside the FOV while the aim key is held. aim only, no triggerbot.");
             AimKey = Config.Bind("Aimbot", "Aim Key", KeyCode.LeftControl,
                 "hold this to aim. left control by default.");
-            AimFov = Config.Bind("Aimbot", "FOV", 20f,
+
+            MenuKey = Config.Bind("Menu", "Toggle Key", KeyCode.Insert,
+                "opens the in-game config menu. insert by default, since nothing else wants it.");            AimFov = Config.Bind("Aimbot", "FOV", 20f,
                 new ConfigDescription("total field of view cone, in degrees. half this is the actual snap radius.",
                     new AcceptableValueRange<float>(1f, 180f)));
             AimDistance = Config.Bind("Aimbot", "Max Distance", 200f,
@@ -373,6 +376,7 @@ namespace Vzor
             AddComponent<LootEspController>();
             AddComponent<QolController>();
             AddComponent<AimbotController>();
+            AddComponent<MenuController>();
 
             try
             {
