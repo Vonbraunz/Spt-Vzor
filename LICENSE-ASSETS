@@ -1,0 +1,34 @@
+chams.bundle is licensed under Creative Commons
+Attribution-NonCommercial-ShareAlike 4.0 International (CC BY-NC-SA 4.0).
+
+Applies to:
+  assets/chams.bundle, including the chams.shader asset inside it
+
+Origin:
+  extracted from TarkovAddons v1.1 Hotfix 4, which states that all files in
+  that release are provided under CC BY-NC-SA 4.0.
+
+You are free to:
+  share: copy and redistribute the material in any medium or format
+  adapt: remix, transform, and build upon the material
+
+Under these terms:
+  attribution: credit the original author
+  noncommercial: no commercial use
+  sharealike: if you remix, transform or build on it, you must distribute your
+              contribution under the same licence as the original
+
+No additional restrictions. You may not apply legal terms or technological
+measures that legally restrict others from doing anything the licence permits.
+
+There is no warranty. The licence is provided as is.
+
+Full licence text:
+  https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode
+Readable summary:
+  https://creativecommons.org/licenses/by-nc-sa/4.0/
+
+Practical note on the split: the plugin source is MIT (see LICENSE). The bundle
+is a separate file sitting next to the dll and loaded at runtime, never compiled
+into it, so the two licences do not have to be the same. If you redistribute
+the bundle, CC BY-NC-SA travels with it whether you like it or not.

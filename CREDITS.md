@@ -9,9 +9,10 @@ unknowncheats.me. The upstream release states:
 > ALL FILES PROVIDED (UNLESS STATED OTHERWISE) ARE PROVIDED UNDER THE CC
 > Attribution-NonCommercial-ShareAlike 4.0 International LICENSE
 
-So the bundle, and this plugin as a derivative work of it, are licensed
-**CC BY-NC-SA 4.0**. That means: credit the original author, no commercial use,
-and share alike. It is not MIT, so do not pretend otherwise if you redistribute.
+So the bundle is licensed **CC BY-NC-SA 4.0**, see `LICENSE-ASSETS`. That means:
+credit the original author, no commercial use, and share alike. The plugin code
+around it is MIT, but the bundle is not, so do not pretend otherwise if you
+redistribute it.
 
 ## Flea price data
 

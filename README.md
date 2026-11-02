@@ -112,11 +112,16 @@ Plain `dotnet build` compiles to `dist` without deploying.
 - **Container contents counts** rely on `ItemExtensions.GetAllItems`. Nested grids are usually included, but treat the totals as approximate until you have compared a few against what you actually find.
 - **Fonts.** Cyrillic renders through Segoe UI. CJK nicknames may come out as blanks.
 
-## Data files and licences
+## Licences
 
-- `chams.bundle` was extracted from **TarkovAddons v1.1 Hotfix 4** and is licensed **CC BY-NC-SA 4.0**. Non-commercial, share alike, attribution required.
-- `prices-regular.json` / `prices-pve.json` come from **[SPT-LiveFleaPriceDB](https://github.com/DrakiaXYZ/SPT-LiveFleaPriceDB)** by DrakiaXYZ, MIT.
-- The instant search patches are ported from **[asler/spt-loot-instant-search](https://github.com/asler/spt-loot-instant-search)**, MIT.
+Two licences, because this repo contains two different kinds of thing:
+
+- **Code:** MIT. See `LICENSE`.
+- **`chams.bundle`:** CC BY-NC-SA 4.0. Non-commercial, share alike, attribution required. See `LICENSE-ASSETS`.
+- **Flea price data** (`prices-regular.json`, `prices-pve.json`): from **[SPT-LiveFleaPriceDB](https://github.com/DrakiaXYZ/SPT-LiveFleaPriceDB)** by DrakiaXYZ, MIT.
+- **Instant search patches:** ported from **[asler/spt-loot-instant-search](https://github.com/asler/spt-loot-instant-search)**, MIT.
+
+The bundle is loaded from disk at runtime and is not compiled into the dll, which is why the code can be MIT while the bundle stays under the share-alike licence.
 
 See `CREDITS.md` for the full notices.
 
