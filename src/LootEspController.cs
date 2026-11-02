@@ -389,7 +389,7 @@ namespace Vzor
 
                     if (!Plugin.EspItems.Value) continue;
 
-                    var label = Shorten(ItemLabel(entry, out var value, out var category), Plugin.EspLabelLength.Value);
+                    var label = ItemLabel(entry, out var value, out var category);
                     _scannedLoot++;
 
                     if (!IsCategoryEnabled(category)) continue;
@@ -418,7 +418,16 @@ namespace Vzor
                     if (!IsSane(itemCenter)) continue;
                     if (occlusion && !Visibility.HasLineOfSight(camPos, itemCenter, entry.transform)) continue;
 
+                    if (Plugin.EspShowQuestProgress.Value &&
+                        ItemTargets.Progress.TryGetValue(entry.TemplateId, out var progress) &&
+                        progress.Required > 0)
+                    {
+                        label += " [" + progress.Current + "/" + progress.Required + "]";
+                    }
+
                     if (Plugin.EspShowValue.Value && value > 0) label += " [" + value / 1000 + "K]";
+
+                    label = Shorten(label, Plugin.EspLabelLength.Value);
 
                     _markers.Add(new Marker
                     {

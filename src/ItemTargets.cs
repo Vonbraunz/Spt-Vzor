@@ -12,6 +12,17 @@ namespace Vzor
         public static readonly HashSet<string> Wishlist = new HashSet<string>();
         public static readonly HashSet<string> Zones = new HashSet<string>();
 
+        public struct QuestProgress
+        {
+            public int Current;
+            public int Required;
+        }
+
+        // template id -> how many you have / how many the quest wants
+        public static readonly Dictionary<string, QuestProgress> Progress = new Dictionary<string, QuestProgress>();
+
+        private static readonly Dictionary<string, int> Counters = new Dictionary<string, int>();
+
         private static float _nextRefresh;
 
         public static void Refresh(GameWorld world, float now)
@@ -22,6 +33,8 @@ namespace Vzor
             Quest.Clear();
             Wishlist.Clear();
             Zones.Clear();
+            Progress.Clear();
+            Counters.Clear();
 
             try
             {
@@ -30,6 +43,7 @@ namespace Vzor
                 if (profile == null) return;
 
                 BuildWishlist(profile);
+                BuildCounters(profile);
                 BuildQuests(profile);
             }
             catch
@@ -58,6 +72,28 @@ namespace Vzor
             catch
             {
                 // wishlist not synced yet
+            }
+        }
+
+        private static void BuildCounters(Profile profile)
+        {
+            try
+            {
+                var counters = profile.TaskConditionCounters;
+                if (counters == null) return;
+
+                var enumerator = counters.GetEnumerator();
+                while (enumerator.MoveNext())
+                {
+                    var id = enumerator.Current.Key.ToString();
+                    if (string.IsNullOrEmpty(id)) continue;
+
+                    Counters[id] = enumerator.Current.Value.Value;
+                }
+            }
+            catch
+            {
+                // counters not synced yet
             }
         }
 
@@ -93,12 +129,24 @@ namespace Vzor
                         if (multiple != null)
                         {
                             var targets = multiple.target;
+                            var conditionId = condition.id.ToString();
+                            Counters.TryGetValue(conditionId, out var current);
+                            var required = (int)condition.value;
+
                             if (targets != null)
                             {
                                 for (var t = 0; t < targets.Length; t++)
                                 {
                                     var id = targets[t];
-                                    if (!string.IsNullOrEmpty(id)) Quest.Add(id);
+                                    if (string.IsNullOrEmpty(id)) continue;
+
+                                    Quest.Add(id);
+
+                                    // keep the larger requirement when several quests want the same item
+                                    if (!Progress.TryGetValue(id, out var existing) || required > existing.Required)
+                                    {
+                                        Progress[id] = new QuestProgress { Current = current, Required = required };
+                                    }
                                 }
                             }
                         }

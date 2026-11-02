@@ -80,6 +80,7 @@ namespace Vzor
         internal static ConfigEntry<bool> EspShowBarter;
         internal static ConfigEntry<bool> EspShowMods;
         internal static ConfigEntry<bool> EspShowQuest;
+        internal static ConfigEntry<bool> EspShowQuestProgress;
         internal static ConfigEntry<bool> EspShowOther;
         internal static ConfigEntry<bool> EspShowExfils;
         internal static ConfigEntry<string> EspExfilColor;
@@ -268,6 +269,8 @@ namespace Vzor
             EspShowBarter = Config.Bind("Loot ESP", "Show Barter", true, "barter and valuables.");
             EspShowMods = Config.Bind("Loot ESP", "Show Mods", true, "weapon mods.");
             EspShowQuest = Config.Bind("Loot ESP", "Show Quest", true, "quest items.");
+            EspShowQuestProgress = Config.Bind("Loot ESP", "Show Quest Progress", true,
+                "append progress to quest item labels, e.g. [3/5], from your active quest counters.");
             EspShowOther = Config.Bind("Loot ESP", "Show Other", true, "anything that fits no category.");
             EspShowExfils = Config.Bind("Loot ESP", "Show Exfils", true, "extraction points. blue when open, red when not.");
 
