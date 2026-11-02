@@ -9,7 +9,6 @@ namespace Vzor
     {
         private GameWorld _world;
         private Player _player;
-        private float _nextWorldSearch;
 
         private void Update()
         {
@@ -100,13 +99,9 @@ namespace Vzor
 
         private void TrackLocalPlayer()
         {
-            var now = Time.unscaledTime;
-
-            if (_world == null && now >= _nextWorldSearch)
-            {
-                _nextWorldSearch = now + 1f;
-                _world = UnityEngine.Object.FindObjectOfType<GameWorld>();
-            }
+            // no world means we are in a menu, and menus get no patches from us. the tracker is
+            // filled in at raid start, see worldtracker.
+            _world = WorldTracker.Current;
 
             if (_world != null && _player == null) _player = _world.MainPlayer;
 

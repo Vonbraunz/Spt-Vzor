@@ -89,8 +89,9 @@ namespace Vzor
             // do nothing at all until a world exists. loading an asset bundle during boot means
             // eft's shader warmup runs afterwards and stomps the shader we are holding, and then
             // the retry path spins forever reloading a bundle that is already mounted. learned that
-            // the loud way. chams only make sense in a raid anyway.
-            if (_world == null) _world = UnityEngine.Object.FindObjectOfType<GameWorld>();
+            // the loud way. chams only make sense in a raid anyway, and the only safe way to know
+            // a raid is running is to be handed the world instead of searching for it.
+            _world = WorldTracker.Current;
             if (_world == null) return false;
 
             if (_shader == null)
@@ -266,9 +267,8 @@ namespace Vzor
 
         private void Repaint()
         {
-            // gameworld is a plain monobehaviour with no static instance, so we hunt for it
-            // lazily and let unity's fake-null tell us when the raid ended.
-            if (_world == null) _world = UnityEngine.Object.FindObjectOfType<GameWorld>();
+            // the world is handed to us at raid start, never searched for. see worldtracker.
+            _world = WorldTracker.Current;
             if (_world == null) return;
 
             var players = _world.AllAlivePlayersList;

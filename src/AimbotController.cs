@@ -12,15 +12,11 @@ namespace Vzor
     {
         private GameWorld _world;
         private Player _player;
-        private float _nextWorldSearch;
 
         private void Update()
         {
-            if (_world == null && Time.unscaledTime >= _nextWorldSearch)
-            {
-                _nextWorldSearch = Time.unscaledTime + 1f;
-                _world = UnityEngine.Object.FindObjectOfType<GameWorld>();
-            }
+            // tracker hands us the world at raid start, so a menu never sees a search from us
+            _world = WorldTracker.Current;
 
             if (_world == null) return;
             if (_player == null) _player = _world.MainPlayer;

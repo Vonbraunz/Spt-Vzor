@@ -265,7 +265,8 @@ namespace Vzor
         
         private void Scan(float now)
         {
-            if (_world == null) _world = UnityEngine.Object.FindObjectOfType<GameWorld>();
+            // world comes from the tracker, see worldtracker for why we stopped searching
+            _world = WorldTracker.Current;
             if (_world == null)
             {
                 _markers.Clear();

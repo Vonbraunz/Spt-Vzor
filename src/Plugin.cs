@@ -540,6 +540,44 @@ namespace Vzor
                     Logger.LogWarning("recoil effector patch skipped, method not found");
                 }
 
+                // capture the raid world when the game makes one, instead of every controller
+                // searching the scene for it. that search is what broke character creation.
+                // each hook is patched on its own: one bad hook used to take out the other two,
+                // and then every feature silently stopped working in raid.
+                var capture = new HarmonyLib.HarmonyMethod(
+                    typeof(WorldTracker).GetMethod("Capture",
+                        System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static));
+                var forget = new HarmonyLib.HarmonyMethod(
+                    typeof(WorldTracker).GetMethod("Forget",
+                        System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static));
+
+                var worldHooks = new[]
+                {
+                    new { Name = "OnGameStarted", Postfix = capture },
+                    new { Name = "Awake", Postfix = capture },
+                    new { Name = "Dispose", Postfix = forget }
+                };
+
+                foreach (var hook in worldHooks)
+                {
+                    try
+                    {
+                        var hookMethod = HarmonyLib.AccessTools.Method(typeof(EFT.GameWorld), hook.Name);
+                        if (hookMethod == null)
+                        {
+                            Logger.LogWarning("world tracker: " + hook.Name + " not found");
+                            continue;
+                        }
+
+                        harmony.Patch(hookMethod, postfix: hook.Postfix);
+                        Logger.LogInfo("world tracker hook applied: " + hook.Name);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.LogError("world tracker hook failed on " + hook.Name + ": " + ex.Message);
+                    }
+                }
+
             }
             catch (Exception ex)
             {
