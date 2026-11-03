@@ -95,7 +95,7 @@ BepInEx\plugins\Vzor\
   web\                    (map page, art and calibration)
 ```
 
-Launch SPT normally. The plugin logs `Vzor 0.5.0 loaded. config only, no hotkeys.`
+Launch SPT normally. The plugin logs `Vzor 0.6.0 loaded. config only, no hotkeys.`
 
 ## Configuration
 
