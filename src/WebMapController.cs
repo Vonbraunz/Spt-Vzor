@@ -819,6 +819,7 @@ namespace Vzor
                                 Location = questLocation,
                                 IsAny = string.IsNullOrEmpty(questLocation) ||
                                         questLocation.Equals("any", StringComparison.OrdinalIgnoreCase),
+                                IsStory = StoryQuestFlag(template != null ? template.Id : null) ?? false,
                                 Ids = new List<string>(),
                                 Zones = new List<string>(),
                                 Locations = new List<string>(),
@@ -961,7 +962,7 @@ namespace Vzor
 
                 quests.Append("{\"n\":\"").Append(JsonEscape(included[i].Name)).Append('"');
                 quests.Append(",\"s\":\"").Append(JsonEscape(included[i].Status)).Append('"');
-                quests.Append(",\"story\":").Append(included[i].IsAny ? "true" : "false");
+                quests.Append(",\"story\":").Append(included[i].IsStory ? "true" : "false");
                 quests.Append(",\"i\":[");
 
                 var firstItem = true;
@@ -1069,6 +1070,7 @@ namespace Vzor
         // through the location data before it can be compared.
         private static Dictionary<string, string> _locationIds;
         private static Dictionary<string, string> _locationNames;
+        private static Dictionary<string, bool> _storyQuests;
 
         private static string LocationMongoId(string folder)
         {
@@ -1149,6 +1151,54 @@ namespace Vzor
 
         // every location id that counts as "here": the map itself, its base variant, and the
         // other factory shift.
+        // the only authoritative answer to "is this a story quest" lives in the quest data, not
+        // in anything the client exposes, so read the flag out of it once.
+        private static bool? StoryQuestFlag(string questId)
+        {
+            if (string.IsNullOrEmpty(questId)) return null;
+
+            if (_storyQuests == null)
+            {
+                _storyQuests = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+
+                try
+                {
+                    var pluginDir = Path.GetDirectoryName(typeof(WebMapController).Assembly.Location);
+                    var gameRoot = Path.GetFullPath(Path.Combine(pluginDir, "..", "..", ".."));
+                    var file = Path.Combine(gameRoot, "SPT_Runtime", "SPT_Data", "database", "templates", "quests.json");
+
+                    if (File.Exists(file))
+                    {
+                        string current = null;
+
+                        foreach (var line in File.ReadLines(file))
+                        {
+                            var head = Regex.Match(line, "^  \"([0-9a-fA-F]{24})\"\\s*:\\s*\\{");
+                            if (head.Success)
+                            {
+                                current = head.Groups[1].Value;
+                                continue;
+                            }
+
+                            if (current == null) continue;
+
+                            var story = Regex.Match(line, "\"isStoryQuest\"\\s*:\\s*(true|false)");
+                            if (!story.Success) continue;
+
+                            _storyQuests[current] = story.Groups[1].Value == "true";
+                            current = null;
+                        }
+                    }
+                }
+                catch
+                {
+                    // no quest data, fall back to the location heuristic
+                }
+            }
+
+            return _storyQuests.TryGetValue(questId, out var value) ? value : (bool?)null;
+        }
+
         private static HashSet<string> CurrentLocationIds(string locationId)
         {
             var keys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -1278,6 +1328,7 @@ namespace Vzor
             public string Status;
             public string Location;
             public bool IsAny;
+            public bool IsStory;
             public List<string> Ids;
             public List<string> Zones;
             public List<string> Locations;
