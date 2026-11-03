@@ -254,5 +254,6 @@
                        "z":  29,
                        "size":  12
                    }
-               ]
+               ],
+    "labelFlip":  false
 }

@@ -31,6 +31,22 @@ namespace Vzor
         private float _nextExfil;
         private string _exfilJson = "[]";
 
+        // entity key -> where it was last seen alive. when a key stops appearing, that last
+        // position becomes an x on the map.
+        private GameWorld _trackedWorld;
+        private readonly Dictionary<string, Seen> _seen = new Dictionary<string, Seen>();
+        private readonly List<Seen> _dead = new List<Seen>();
+
+        private sealed class Seen
+        {
+            public float X;
+            public float Y;
+            public float Z;
+            public string Role;
+            public string Side;
+            public bool Alive;
+        }
+
         private void Awake()
         {
             var dir = Path.GetDirectoryName(typeof(WebMapController).Assembly.Location) ?? ".";
@@ -58,12 +74,20 @@ namespace Vzor
                 }
 
                 var now = Time.unscaledTime;
+                var world = WorldTracker.Current;
+
+                // a new raid means a new set of bodies. drop everything from the last one.
+                if (!ReferenceEquals(world, _trackedWorld))
+                {
+                    _trackedWorld = world;
+                    _seen.Clear();
+                    _dead.Clear();
+                }
 
                 // exfils move about as often as the weather, so they get their own slower timer
                 if (now >= _nextExfil)
                 {
                     _nextExfil = now + 2f;
-                    var world = WorldTracker.Current;
                     _exfilJson = world != null ? BuildExfils(world) : "[]";
                 }
 
@@ -464,6 +488,8 @@ namespace Vzor
             var me = world.MainPlayer;
             var players = world.AllAlivePlayersList;
             var sb = new StringBuilder(4096);
+            var now = Time.unscaledTime;
+            var aliveNow = new HashSet<string>();
 
             sb.Append("{\"inRaid\":true");
             sb.Append(",\"map\":\"").Append(JsonEscape(SafeLocationId(world))).Append('"');
@@ -500,6 +526,32 @@ namespace Vzor
                             if (settings != null) role = settings.Role.ToString();
                         }
 
+                        // remember every entity we have seen alive, and where
+                        var key = EntityKey(p);
+                        aliveNow.Add(key);
+
+                        if (_seen.TryGetValue(key, out var tracked))
+                        {
+                            tracked.X = p.Position.x;
+                            tracked.Y = p.Position.y;
+                            tracked.Z = p.Position.z;
+                            tracked.Role = role;
+                            tracked.Side = side;
+                            tracked.Alive = true;
+                        }
+                        else
+                        {
+                            _seen[key] = new Seen
+                            {
+                                X = p.Position.x,
+                                Y = p.Position.y,
+                                Z = p.Position.z,
+                                Role = role,
+                                Side = side,
+                                Alive = true
+                            };
+                        }
+
                         if (!first) sb.Append(',');
                         first = false;
 
@@ -524,38 +576,64 @@ namespace Vzor
                 }
             }
 
-            sb.Append("],\"exfils\":").Append(_exfilJson);
-            sb.Append(",\"corpses\":[");
-
-            var firstCorpse = true;
-            try
+            // anything that was alive on the last push and is not now has left the map. keep the
+            // last position and let it stand as an x, because a body that despawned is still
+            // worth knowing about.
+            foreach (var pair in _seen)
             {
-                var corpses = world.ObservedPlayersCorpses;
-                if (corpses != null)
+                if (pair.Value.Alive && !aliveNow.Contains(pair.Key))
                 {
-                    var corpseEnumerator = corpses.GetEnumerator();
-                    while (corpseEnumerator.MoveNext())
-                    {
-                        var corpse = corpseEnumerator.Current.Value;
-                        if (corpse == null) continue;
-
-                        var position = corpse.transform.position;
-                        if (!firstCorpse) sb.Append(',');
-                        firstCorpse = false;
-
-                        sb.Append("{\"x\":").Append(Num(position.x));
-                        sb.Append(",\"y\":").Append(Num(position.y));
-                        sb.Append(",\"z\":").Append(Num(position.z)).Append('}');
-                    }
+                    pair.Value.Alive = false;
+                    _dead.Add(pair.Value);
                 }
             }
-            catch
+
+            while (_dead.Count > 60) _dead.RemoveAt(0);
+
+            sb.Append("],\"exfils\":").Append(_exfilJson);
+
+            // bodies are entities that were alive on an earlier push and are gone now. the game
+            // removes corpses before we can always read them, but it cannot hide the fact that
+            // something stopped existing, so we mark the last place we saw it.
+            sb.Append(",\"bodies\":[");
+
+            var firstBody = true;
+            for (var i = 0; i < _dead.Count; i++)
             {
-                // corpse list not ready
+                var body = _dead[i];
+
+                if (!firstBody) sb.Append(',');
+                firstBody = false;
+
+                sb.Append("{\"x\":").Append(Num(body.X));
+                sb.Append(",\"z\":").Append(Num(body.Z));
+                sb.Append(",\"role\":\"").Append(JsonEscape(body.Role)).Append('"');
+                sb.Append(",\"side\":\"").Append(JsonEscape(body.Side)).Append('"');
+                sb.Append('}');
             }
 
             sb.Append("]}");
             return sb.ToString();
+        }
+
+        // exit names are locale ids as often as they are prose. "un-sec" and "wood_sniper_exit"
+        // are keys, the game knows the human name, so ask it.
+        private static string Localize(string name)
+        {
+            try
+            {
+                var manager = LocalizationManager.Instance;
+                if (manager == null) return name;
+
+                var localized = manager.LocalizedValue(name);
+                if (!string.IsNullOrEmpty(localized)) return localized;
+            }
+            catch
+            {
+                // localization not loaded yet
+            }
+
+            return name;
         }
 
         private string BuildExfils(GameWorld world)
@@ -580,6 +658,7 @@ namespace Vzor
 
                         var name = settings.Name;
                         if (string.IsNullOrEmpty(name)) continue;
+                        name = Localize(name);
 
                         var status = point.Status;
                         if (status == EExfiltrationStatus.NotPresent || status == EExfiltrationStatus.Hidden)
@@ -606,6 +685,27 @@ namespace Vzor
 
             sb.Append(']');
             return sb.ToString();
+        }
+
+        // profile id is stable for the life of an entity. instance id is the fallback for bots
+        // whose profile has not been built yet.
+        private static string EntityKey(Player player)
+        {
+            try
+            {
+                var profile = player.Profile;
+                if (profile != null)
+                {
+                    var id = profile.Id.ToString();
+                    if (!string.IsNullOrEmpty(id) && id != "0") return id;
+                }
+            }
+            catch
+            {
+                // profile mid construction
+            }
+
+            return "iid" + player.GetInstanceID();
         }
 
         private static string SafeLocationId(GameWorld world)

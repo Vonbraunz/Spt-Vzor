@@ -47,5 +47,6 @@
                ],
     "labels":  [
 
-               ]
+               ],
+    "labelFlip":  false
 }

@@ -122,5 +122,6 @@
                        "z":  4.0,
                        "size":  12
                    }
-               ]
+               ],
+    "labelFlip":  false
 }

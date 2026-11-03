@@ -291,5 +291,6 @@
                        "z":  -3,
                        "size":  16
                    }
-               ]
+               ],
+    "labelFlip":  false
 }

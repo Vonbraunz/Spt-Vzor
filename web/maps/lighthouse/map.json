@@ -1,8 +1,7 @@
-{
+﻿{
     "id":  "lighthouse",
     "display":  "Lighthouse (Rework)",
     "rotation":  180,
-  "labelFlip": true,
     "bounds":  {
                    "Min":  {
                                "x":  -545,
@@ -215,5 +214,6 @@
                        "z":  0,
                        "size":  16
                    }
-               ]
+               ],
+    "labelFlip":  true
 }

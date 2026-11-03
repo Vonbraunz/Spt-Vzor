@@ -241,5 +241,6 @@
                        "z":  -62.46,
                        "size":  12
                    }
-               ]
+               ],
+    "labelFlip":  false
 }

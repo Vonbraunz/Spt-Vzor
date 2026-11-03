@@ -266,5 +266,6 @@
                        "z":  0,
                        "size":  16
                    }
-               ]
+               ],
+    "labelFlip":  false
 }

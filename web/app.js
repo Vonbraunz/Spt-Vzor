@@ -19,6 +19,7 @@ let saveTimer = null;
 let labels = [];
 let labelFlip = false;
 let showNames = true;
+let showContacts = true;
 let follow = true;
 let samples = [];
 let pending = null;
@@ -140,8 +141,6 @@ async function loadMap(id) {
       const savedFlip = localStorage.getItem("vzor.labelFlip." + id);
       if (savedFlip !== null) labelFlip = savedFlip === "1";
     } catch (e) { }
-    const lflip = document.getElementById("lflip");
-    if (lflip) lflip.checked = labelFlip;
   } catch (e) {
     mapCfg = null;
     mapFailed = true;
@@ -177,11 +176,22 @@ function pickLayer(force) {
     }
   }
 
-  if (!chosen) chosen = mapCfg.layers.find(l => l.level === 0) || mapCfg.layers[0];
+  if (!chosen)
+  {
+    // their floor bounds are boxes around buildings, not whole floors. standing in a corridor
+    // between two boxes used to drop us to ground floor, so keep the last layer instead of
+    // guessing, and only fall back on a fresh map.
+    if (currentLayer && !force) return;
+    chosen = mapCfg.layers.find(l => l.level === 0) || mapCfg.layers[0];
+  }
+
   if (!chosen) return;
 
   if (force || !currentLayer || currentLayer.name !== chosen.name) {
     currentLayer = chosen;
+
+    const floorLabel = document.getElementById("floor");
+    if (floorLabel) floorLabel.textContent = chosen.name;
     image = new Image();
     image.onload = draw;
     image.src = "/maps/" + encodeURIComponent(mapId) + "/" + encodeURIComponent(chosen.image);
@@ -344,9 +354,9 @@ function draw() {
     ctx.textAlign = "left";
   }
 
-  // bodies. a plain white x, no label, because a corpse name is not actionable and there can
-  // be twenty of them.
-  for (const body of (state.corpses || [])) {
+  // bodies. anything that was alive and then was not, marked where we last saw it. a plain
+  // white x, no label, because a body's name is not actionable and there can be twenty.
+  for (const body of (state.bodies || [])) {
     const s = project(body.x, body.z);
     const r = 5;
 
@@ -374,14 +384,16 @@ function draw() {
     ctx.lineWidth = 1;
     ctx.stroke();
 
-    ctx.font = "11px Segoe UI, sans-serif";
-    ctx.fillStyle = "#dfe6ee";
-    ctx.textAlign = "left";
-    ctx.lineWidth = 3;
-    ctx.strokeStyle = "#0b0e12cc";
-    const text = contactLabel(p) + "  " + Math.round(p.dist || 0) + "m";
-    ctx.strokeText(text, s.x + 7, s.y + 4);
-    ctx.fillText(text, s.x + 7, s.y + 4);
+    if (showContacts) {
+      ctx.font = "11px Segoe UI, sans-serif";
+      ctx.fillStyle = "#dfe6ee";
+      ctx.textAlign = "left";
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = "#0b0e12cc";
+      const text = contactLabel(p) + "  " + Math.round(p.dist || 0) + "m";
+      ctx.strokeText(text, s.x + 7, s.y + 4);
+      ctx.fillText(text, s.x + 7, s.y + 4);
+    }
   }
 
   if (typeof state.x === "number") drawSelf();
@@ -424,10 +436,77 @@ function drawSelf() {
   ctx.stroke();
 }
 
-// scavs have generated russian nicknames that mean nothing to anyone. role colour already
-// tells us the bucket, so scav grey becomes the literal word.
+// the game hands bots generated russian nicknames. these are the english names everyone
+// actually calls them, keyed by wildspawn role in lowercase.
+const ROLE_LABELS = {
+  bossbully: "Reshala",
+  bosskilla: "Killa",
+  bosskillaagro: "Killa",
+  bosskojaniy: "Shturman",
+  bossgluhar: "Glukhar",
+  bosssanitar: "Sanitar",
+  bosstagilla: "Tagilla",
+  bosstagillaagro: "Tagilla",
+  bossknight: "Knight",
+  bosszryachiy: "Zryachiy",
+  bossboar: "Kaban",
+  bossboarsniper: "Kaban",
+  bosskolontay: "Kolontay",
+  bosspartisan: "Partisan",
+  bosswedge: "Wedge",
+  bosswedgelab: "Wedge",
+  bossbullyblackdiv: "Reshala",
+  followerbully: "Reshala guard",
+  followerbullyblackdiv: "Reshala guard",
+  followerkojaniy: "Shturman guard",
+  followergluharassault: "Glukhar guard",
+  followergluharsecurity: "Glukhar guard",
+  followergluharscout: "Glukhar guard",
+  followergluharsnipe: "Glukhar guard",
+  followersanitar: "Sanitar guard",
+  followertagilla: "Tagilla guard",
+  followerzryachiy: "Zryachiy guard",
+  followerboar: "Kaban guard",
+  followerboarclose1: "Kaban guard",
+  followerboarclose2: "Kaban guard",
+  followerbigpipe: "Big Pipe",
+  followerbirdeye: "Birdeye",
+  followerkolontayassault: "Kolontay guard",
+  followerkolontaysecurity: "Kolontay guard",
+  followerwedgelab: "Wedge guard",
+  pmcbot: "Raider",
+  pmcbotblackdiv: "Raider",
+  pmcbotblackdivseason: "Raider",
+  exusec: "Rogue",
+  exusecfree: "Rogue",
+  sectantpriest: "Cultist priest",
+  sectactpriestevent: "Cultist priest",
+  sectantwarrior: "Cultist",
+  sectantpredvestnik: "Cultist",
+  sectantprizrak: "Cultist",
+  sectantoni: "Cultist",
+  blackdivision: "Black Division",
+  arenafighter: "Arena fighter",
+  arenafighterevent: "Arena fighter"
+};
+
 function contactLabel(p) {
-  return roleColor(p.role, p.side) === "#d6d6d6" ? "Scav" : (p.name || "?");
+  const r = (p.role || "").toLowerCase();
+
+  // human players keep their actual name, that is the only one that means anything
+  if (r.includes("pmcusec") || r.includes("pmcbear")) return p.name || "?";
+
+  const named = ROLE_LABELS[r];
+  if (named) return named;
+
+  if (r.startsWith("boss")) return "Boss";
+  if (r.startsWith("follower")) return "Follower";
+  if (r.includes("sectant") || r.includes("sectact")) return "Cultist";
+  if (r.includes("pmcbot")) return "Raider";
+  if (r.includes("exusec")) return "Rogue";
+  if (r.includes("blackdivision")) return "Black Division";
+
+  return "Scav";
 }
 
 function roleColor(role, side) {
@@ -734,9 +813,10 @@ function bindCalibration() {
     saveCalibration();
   });
 
-  document.getElementById("lflip").addEventListener("change", e => {
-    labelFlip = e.target.checked;
-    try { localStorage.setItem("vzor.labelFlip." + mapId, labelFlip ? "1" : "0"); } catch (err) { }
+
+  document.getElementById("contacts").addEventListener("change", e => {
+    showContacts = e.target.checked;
+    try { localStorage.setItem("vzor.contacts", showContacts ? "1" : "0"); } catch (err) { }
     draw();
   });
 
@@ -892,6 +972,9 @@ async function checkVersion() {
 
 try { showNames = localStorage.getItem("vzor.names") !== "0"; } catch (e) { }
 document.getElementById("names").checked = showNames;
+
+try { showContacts = localStorage.getItem("vzor.contacts") !== "0"; } catch (e) { }
+document.getElementById("contacts").checked = showContacts;
 
 try { follow = localStorage.getItem("vzor.follow") !== "0"; } catch (e) { }
 setFollow(follow);

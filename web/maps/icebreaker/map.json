@@ -792,5 +792,6 @@
                        "z":  42.67,
                        "size":  11
                    }
-               ]
+               ],
+    "labelFlip":  false
 }

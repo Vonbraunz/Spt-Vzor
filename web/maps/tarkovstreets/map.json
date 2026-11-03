@@ -1087,5 +1087,6 @@
                        "z":  0,
                        "size":  10
                    }
-               ]
+               ],
+    "labelFlip":  true
 }

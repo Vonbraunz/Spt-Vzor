@@ -293,5 +293,6 @@
                        "z":  0,
                        "size":  14
                    }
-               ]
+               ],
+    "labelFlip":  false
 }
