@@ -10,6 +10,9 @@ let mapCfg = null;
 let mapId = null;
 let currentLayer = null;
 let image = null;
+let baseLayer = null;
+let baseImage = null;
+let showStack = true;
 let mapFailed = false;
 
 let cal = { rotation: 0, scale: 1, offsetX: 0, offsetY: 0, flipX: 1, flipY: 1 };
@@ -133,6 +136,14 @@ async function loadMap(id) {
     if (!r.ok) throw new Error("no art for " + id);
     mapCfg = await r.json();
     labels = mapCfg.labels || [];
+    baseLayer = mapCfg.layers.find(l => l.level === 0) || mapCfg.layers[0];
+    baseImage = null;
+
+    if (baseLayer) {
+      baseImage = new Image();
+      baseImage.onload = draw;
+      baseImage.src = "/maps/" + encodeURIComponent(mapId) + "/" + encodeURIComponent(baseLayer.image);
+    }
 
     // the map can declare that its labels are authored 180 out from its art, which some of the
     // rework sets are. a saved toggle in the browser still wins.
@@ -161,14 +172,15 @@ function pickLayer(force) {
 
   let chosen = null;
 
-  // full 3d containment. matching on height alone picks underground tunnels whenever the
-  // player is standing above one, which is how the first version drew dots on the wrong floor.
+  // full 3d containment. their bounds are x, then depth in y, then height in z. comparing our
+  // height against their depth range matched the ground floor box every time and nothing else,
+  // which is why resort floors never changed.
   if (state.inRaid && typeof state.y === "number" && typeof state.x === "number" && typeof state.z === "number") {
     for (const layer of mapCfg.layers) {
       for (const b of (layer.gameBounds || [])) {
         if (state.x >= b.Min.x && state.x <= b.Max.x &&
-            state.y >= b.Min.y && state.y <= b.Max.y &&
-            state.z >= b.Min.z && state.z <= b.Max.z) {
+            state.z >= b.Min.y && state.z <= b.Max.y &&
+            state.y >= b.Min.z && state.y <= b.Max.z) {
           if (!chosen || layer.level > chosen.level) chosen = layer;
           break;
         }
@@ -271,24 +283,10 @@ function draw() {
 
   if (!mapCfg || !currentLayer) return;
 
-  if (image && image.complete && image.naturalWidth > 0) {
-    const cx = currentLayer.width / 2;
-    const cy = currentLayer.height / 2;
-    const t = (cal.rotation * Math.PI) / 180;
-
-    ctx.save();
-    ctx.translate(canvas.width / 2, canvas.height / 2);
-    ctx.scale(view.zoom, view.zoom);
-    ctx.translate(-view.x, -view.y);
-    ctx.translate(cx + cal.offsetX, cy + cal.offsetY);
-    ctx.rotate(t);
-    ctx.scale(cal.scale, cal.scale);
-    ctx.scale(cal.flipX, cal.flipY);
-    ctx.translate(-cx, -cy);
-    ctx.globalAlpha = 0.92;
-    ctx.drawImage(image, 0, 0, currentLayer.width, currentLayer.height);
-    ctx.restore();
-  }
+  // upper floors are transparent overlays, so the ground map goes on first and the floor plan
+  // sits on top of it. a bare floor layer is a building outline with nothing around it.
+  if (showStack && baseLayer && baseLayer !== currentLayer) drawImageLayer(baseImage, baseLayer, 1, true);
+  drawImageLayer(image, currentLayer, 1, false);
 
   // place names come from the map config, they are not in the svg. they belong to the art, so
   // they take the same transform and move with it while you calibrate.
@@ -406,6 +404,36 @@ function draw() {
     ctx.lineWidth = 2;
     ctx.stroke();
   }
+}
+
+function drawImageLayer(img, layer, alpha, dim) {
+  if (!img || !layer || !img.complete || img.naturalWidth === 0) return;
+
+  const cx = layer.width / 2;
+  const cy = layer.height / 2;
+  const t = (cal.rotation * Math.PI) / 180;
+
+  ctx.save();
+  ctx.translate(canvas.width / 2, canvas.height / 2);
+  ctx.scale(view.zoom, view.zoom);
+  ctx.translate(-view.x, -view.y);
+  ctx.translate(cx + cal.offsetX, cy + cal.offsetY);
+  ctx.rotate(t);
+  ctx.scale(cal.scale, cal.scale);
+  ctx.scale(cal.flipX, cal.flipY);
+  ctx.translate(-cx, -cy);
+  ctx.globalAlpha = alpha;
+  ctx.drawImage(img, 0, 0, layer.width, layer.height);
+
+  // darken the base with an explicit pass. canvas filter on a drawimage turned out to be a no
+  // op here, and fading both layers is what made them mud in the first place.
+  if (dim) {
+    ctx.globalAlpha = 0.45;
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0, 0, layer.width, layer.height);
+  }
+
+  ctx.restore();
 }
 
 function drawSelf() {
@@ -814,6 +842,12 @@ function bindCalibration() {
   });
 
 
+  document.getElementById("stack").addEventListener("change", e => {
+    showStack = e.target.checked;
+    try { localStorage.setItem("vzor.stack", showStack ? "1" : "0"); } catch (err) { }
+    draw();
+  });
+
   document.getElementById("contacts").addEventListener("change", e => {
     showContacts = e.target.checked;
     try { localStorage.setItem("vzor.contacts", showContacts ? "1" : "0"); } catch (err) { }
@@ -975,6 +1009,9 @@ document.getElementById("names").checked = showNames;
 
 try { showContacts = localStorage.getItem("vzor.contacts") !== "0"; } catch (e) { }
 document.getElementById("contacts").checked = showContacts;
+
+try { showStack = localStorage.getItem("vzor.stack") !== "0"; } catch (e) { }
+document.getElementById("stack").checked = showStack;
 
 try { follow = localStorage.getItem("vzor.follow") !== "0"; } catch (e) { }
 setFollow(follow);
