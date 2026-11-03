@@ -28,6 +28,7 @@ namespace Vzor
         private Material _material;
         private string _materialSignature;
         private readonly Dictionary<ChamsType, Material> _typeMaterials = new Dictionary<ChamsType, Material>();
+        private readonly HashSet<ChamsType> _loggedTypes = new HashSet<ChamsType>();
 
         private enum ChamsType
         {
@@ -162,6 +163,36 @@ namespace Vzor
             {
                 _shaderLogged = true;
                 Plugin.Logger.LogInfo("loaded shader '" + name + "'");
+                DumpShaderProperties();
+            }
+        }
+
+        // one shot diagnostic. the shader ships compiled, so this is the only way to find out
+        // which colour properties it actually has without unpacking the bundle by hand.
+        private void DumpShaderProperties()
+        {
+            try
+            {
+                var count = _shader.GetPropertyCount();
+                var names = new List<string>();
+
+                for (var i = 0; i < count; i++)
+                {
+                    try
+                    {
+                        names.Add(_shader.GetPropertyName(i) + ":" + _shader.GetPropertyType(i));
+                    }
+                    catch
+                    {
+                        names.Add("?");
+                    }
+                }
+
+                Plugin.Logger.LogInfo("chams shader properties (" + count + "): " + string.Join(", ", names));
+            }
+            catch (Exception ex)
+            {
+                Plugin.Logger.LogWarning("chams: could not read shader properties: " + ex.Message);
             }
         }
 
@@ -207,9 +238,23 @@ namespace Vzor
             var material = new Material(_shader);
             material.name = "Vzor";
             material.mainTexture = null;
-            material.SetColor("_Color_Visible", visible);
-            material.SetColor("_Color_Occluded", occluded);
+
+            SetColor(material, "_Color_Visible", visible);
+            SetColor(material, "_Color_Occluded", occluded);
+
+            // the bundle is compiled, not source, so we cannot read its property names. set the
+            // single-colour names too, otherwise a shader that only exposes _Color renders white
+            // and it looks like the faction colouring is broken when it is the material at fault.
+            SetColor(material, "_Color", visible);
+            SetColor(material, "_VisibleColor", visible);
+            SetColor(material, "_OccludedColor", occluded);
+
             return material;
+        }
+
+        private static void SetColor(Material material, string name, Color color)
+        {
+            if (material.HasProperty(name)) material.SetColor(name, color);
         }
 
         private Material BuildTypeMaterial(string hex, Color fallback)
@@ -227,6 +272,67 @@ namespace Vzor
             return _typeMaterials.TryGetValue(type, out var material) ? material : _material;
         }
 
+        // temporary diagnostic. tells us whether a white body is a colour problem or a faction
+        // resolution problem, without needing a second raid to find out.
+        private void LogTypeOnce(Player player)
+        {
+            // one line per faction. a cap on total lines just meant twenty scavs and never the
+            // boss we were actually trying to diagnose.
+            var typeNow = GetChamsType(player);
+            if (_loggedTypes.Contains(typeNow)) return;
+            _loggedTypes.Add(typeNow);
+
+            try
+            {
+                var role = "?";
+                var side = "?";
+
+                var profile = player.Profile;
+                var info = profile != null ? profile.Info : null;
+                if (info != null)
+                {
+                    side = info.Side.ToString();
+
+                    var settings = info.Settings;
+                    if (settings != null) role = settings.Role.ToString();
+                }
+
+                var colour = "?";
+                if (_typeMaterials.TryGetValue(typeNow, out var material) && material != null)
+                    colour = Hex(material.GetColor("_Color_Visible"));
+
+                Plugin.Logger.LogInfo("chams: " + typeNow + " side=" + side + " role=" + role +
+                    " colour=" + colour + " nick=" + PlayerName(player));
+            }
+            catch
+            {
+                // logging must never be the reason a raid dies
+            }
+        }
+
+        private static string Hex(Color c)
+        {
+            return "#" + Mathf.RoundToInt(c.r * 255f).ToString("X2") +
+                   Mathf.RoundToInt(c.g * 255f).ToString("X2") +
+                   Mathf.RoundToInt(c.b * 255f).ToString("X2");
+        }
+
+        private static string PlayerName(Player player)
+        {
+            try
+            {
+                var profile = player.Profile;
+                var info = profile != null ? profile.Info : null;
+                if (info == null) return "?";
+                var nick = info.Nickname;
+                return string.IsNullOrEmpty(nick) ? "?" : nick;
+            }
+            catch
+            {
+                return "?";
+            }
+        }
+
         private static ChamsType GetChamsType(Player player)
         {
             try
@@ -235,22 +341,13 @@ namespace Vzor
                 var info = profile != null ? profile.Info : null;
                 if (info == null) return ChamsType.Scav;
 
+                // role first. ai pmcs have side=savage like every other bot and carry their
+                // actual faction in the role, which is why pmcs used to come out scav coloured.
                 var settings = info.Settings;
                 if (settings != null)
                 {
-                    var role = settings.Role.ToString();
-                    if (!string.IsNullOrEmpty(role))
-                    {
-                        if (role.IndexOf("boss", StringComparison.OrdinalIgnoreCase) >= 0)
-                            return ChamsType.Boss;
-
-                        // cultists, raiders and boss followers get their own colour
-                        if (role.IndexOf("sectant", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                            role.IndexOf("pmcbot", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                            role.IndexOf("raider", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                            role.IndexOf("follower", StringComparison.OrdinalIgnoreCase) >= 0)
-                            return ChamsType.Special;
-                    }
+                    var byRole = TypeFromRole(settings.Role.ToString());
+                    if (byRole != ChamsType.Scav) return byRole;
                 }
 
                 var side = info.Side;
@@ -261,6 +358,25 @@ namespace Vzor
             {
                 // profile not ready
             }
+
+            return ChamsType.Scav;
+        }
+
+        private static ChamsType TypeFromRole(string role)
+        {
+            if (string.IsNullOrEmpty(role)) return ChamsType.Scav;
+
+            var r = role.ToLowerInvariant();
+
+            if (r.Contains("boss")) return ChamsType.Boss;
+
+            // raiders, rogues, cultists and everybody's followers. shoot first, sort it out later.
+            if (r.Contains("pmcbot") || r.Contains("exusec") || r.Contains("sectant") ||
+                r.Contains("follower") || r.Contains("blackdivision") || r.Contains("raider"))
+                return ChamsType.Special;
+
+            if (r.Contains("pmcusec")) return ChamsType.Usec;
+            if (r.Contains("pmcbear")) return ChamsType.Bear;
 
             return ChamsType.Scav;
         }
@@ -300,6 +416,7 @@ namespace Vzor
                     var skins = body.BodySkins;
                     if (skins == null) continue;
 
+                    LogTypeOnce(player);
                     var material = MaterialFor(player);
 
                     var enumerator = skins.GetEnumerator();

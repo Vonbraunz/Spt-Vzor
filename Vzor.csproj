@@ -88,6 +88,10 @@
   <Target Name="Deploy" DependsOnTargets="Build">
     <MakeDir Directories="$(PluginDir)" />
     <Copy SourceFiles="$(OutputPath)Vzor.dll;$(OutputPath)chams.bundle;$(OutputPath)prices-regular.json;$(OutputPath)prices-pve.json" DestinationFolder="$(PluginDir)" />
+    <ItemGroup>
+      <WebFiles Include="$(MSBuildProjectDirectory)\web\**\*.*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(WebFiles)" DestinationFiles="@(WebFiles->'$(PluginDir)\web\%(RecursiveDir)%(Filename)%(Extension)')" />
     <Message Importance="high" Text="deployed to $(PluginDir)" />
   </Target>
 

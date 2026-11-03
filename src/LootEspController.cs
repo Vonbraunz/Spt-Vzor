@@ -746,8 +746,7 @@ namespace Vzor
                     var distance = Vector3.Distance(camPos, position);
                     if (distance > maxDistance) continue;
 
-                    var label = trigger.Description;
-                    if (string.IsNullOrEmpty(label)) label = "Quest zone";
+                    var label = ZoneLabel(id, trigger.Description, "Quest zone");
 
                     _markers.Add(new Marker
                     {
@@ -778,8 +777,7 @@ namespace Vzor
                     var distance = Vector3.Distance(camPos, position);
                     if (distance > maxDistance) continue;
 
-                    var label = trigger.Description;
-                    if (string.IsNullOrEmpty(label)) label = "Visit zone";
+                    var label = ZoneLabel(id, trigger.Description, "Visit zone");
 
                     _markers.Add(new Marker
                     {
@@ -809,6 +807,23 @@ namespace Vzor
             if (camera == null) return;
 
             ScanGrenades(camera.transform.position);
+        }
+
+        // bsg leaks raw locale keys through trigger descriptions, which is where the
+        // "TriggerWithID" tags came from. the quest name is a better label anyway, so prefer
+        // it and only fall back to the trigger text when it looks like prose rather than a key.
+        private static string ZoneLabel(string id, string description, string fallback)
+        {
+            if (ItemTargets.ZoneNames.TryGetValue(id, out var questName) && !string.IsNullOrEmpty(questName))
+                return questName;
+
+            if (!string.IsNullOrEmpty(description) &&
+                description.IndexOf("TriggerWith", StringComparison.OrdinalIgnoreCase) < 0)
+            {
+                return description;
+            }
+
+            return fallback;
         }
 
         private void ScanGrenades(Vector3 camPos)
@@ -1090,7 +1105,11 @@ namespace Vzor
                     if (template != null)
                     {
                         templatePrice = template.CreditsPrice;
-                        if (template.QuestItem) info.Category = Category.Quest;
+
+                        // template.questitem is bsg's "this item belongs to some quest" flag,
+                        // not "belongs to a quest you are on". it was painting half the map as
+                        // quest loot for quests nobody had accepted, so the category is decided
+                        // further down from the active quest conditions instead.
                     }
                 }
                 catch
@@ -1098,16 +1117,13 @@ namespace Vzor
                     // template not loaded yet
                 }
 
-                if (info.Category != Category.Quest)
+                try
                 {
-                    try
-                    {
-                        info.Category = Categorize(root.GetType().Name);
-                    }
-                    catch
-                    {
-                        // no runtime type, leave as other
-                    }
+                    info.Category = Categorize(root.GetType().Name);
+                }
+                catch
+                {
+                    // no runtime type, leave as other
                 }
             }
 

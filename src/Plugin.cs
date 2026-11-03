@@ -89,6 +89,7 @@ namespace Vzor
         internal static ConfigEntry<bool> EspShowWishlist;
         internal static ConfigEntry<string> EspWishlistColor;
         internal static ConfigEntry<bool> EspQuestOnly;
+        internal static ConfigEntry<bool> EspQuestNeededOnly;
         internal static ConfigEntry<bool> EspShowZones;
         internal static ConfigEntry<float> EspZoneDistance;
         internal static ConfigEntry<string> EspZoneColor;
@@ -103,12 +104,16 @@ namespace Vzor
         internal static ConfigEntry<bool> AimEnabled;
         internal static ConfigEntry<KeyCode> AimKey;
         internal static ConfigEntry<KeyCode> MenuKey;
+        internal static ConfigEntry<bool> WebMapEnabled;
+        internal static ConfigEntry<int> WebMapPort;
+        internal static ConfigEntry<float> WebMapRate;
         internal static ConfigEntry<float> AimFov;
         internal static ConfigEntry<float> AimDistance;
         internal static ConfigEntry<float> AimSmooth;
         internal static ConfigEntry<bool> AimHead;
         internal static ConfigEntry<bool> AimVisibleOnly;
         internal static ConfigEntry<bool> AimMagicBullet;
+        internal static ConfigEntry<bool> AimMagicNearest;
         internal static ConfigEntry<int> EspFontSize;
         internal static ConfigEntry<int> EspLabelLength;
         internal static ConfigEntry<string> EspItemColor;
@@ -285,6 +290,9 @@ namespace Vzor
             EspWishlistColor = Config.Bind("Loot ESP", "Wishlist Color", "#00FFAA", "rgba hex for wishlist items.");
             EspQuestOnly = Config.Bind("Loot ESP", "Quest Items Only", false,
                 "hide everything that isn't required by an active quest or on your wishlist.");
+
+            EspQuestNeededOnly = Config.Bind("Loot ESP", "Only Missing Quest Items", true,
+                "only mark quest items you still need. once a find or handover counter reaches the required count, the item stops showing. turn off for the full shopping list.");
             EspShowZones = Config.Bind("Loot ESP", "Show Quest Zones", true,
                 "mark place-item and plant-beacon zones the game knows about for your active quests.");
             EspZoneDistance = Config.Bind("Loot ESP", "Zone Distance", 300f,
@@ -318,7 +326,16 @@ namespace Vzor
                 "hold this to aim. left control by default.");
 
             MenuKey = Config.Bind("Menu", "Toggle Key", KeyCode.Insert,
-                "opens the in-game config menu. insert by default, since nothing else wants it.");            AimFov = Config.Bind("Aimbot", "FOV", 20f,
+                "opens the in-game config menu. insert by default, since nothing else wants it.");
+
+            WebMapEnabled = Config.Bind("Web Map", "Enabled", false,
+                "serve a live map to your browser on 127.0.0.1. off by default because it opens a port, even if only on loopback.");
+            WebMapPort = Config.Bind("Web Map", "Port", 6970,
+                new ConfigDescription("loopback port for the map page. change it if something else owns 6970.",
+                    new AcceptableValueRange<int>(1024, 65535)));
+            WebMapRate = Config.Bind("Web Map", "Refresh Rate", 10f,
+                new ConfigDescription("state pushes per second. 10 is smooth enough and costs nothing.",
+                    new AcceptableValueRange<float>(1f, 30f)));            AimFov = Config.Bind("Aimbot", "FOV", 20f,
                 new ConfigDescription("total field of view cone, in degrees. half this is the actual snap radius.",
                     new AcceptableValueRange<float>(1f, 180f)));
             AimDistance = Config.Bind("Aimbot", "Max Distance", 200f,
@@ -331,8 +348,11 @@ namespace Vzor
                 "aim at head height. off means chest, which is faster to acquire and less obvious.");
             AimVisibleOnly = Config.Bind("Aimbot", "Visible Only", false,
                 "require line of sight. off means it will try to aim through walls, which is a good way to shoot a wall.");
+            AimMagicNearest = Config.Bind("Aimbot", "Magic Bullet Nearest", false,
+                "magic bullet picks the closest body by distance instead of the one inside your fov cone. off means it targets exactly what the aimbot would.");
+
             AimMagicBullet = Config.Bind("Aimbot", "Magic Bullet", false,
-                "redirect every shot to the closest on-screen head, regardless of where the gun is pointed. the gun never moves and walls are not consulted.");
+                "redirect every shot to the head picked by Magic Bullet Nearest, regardless of where the gun is pointed. the gun never moves and walls are not consulted.");
             EspFontSize = Config.Bind("Loot ESP", "Font Size", 10,
                 new ConfigDescription("label text size in pixels.",
                     new AcceptableValueRange<int>(8, 24)));
@@ -377,6 +397,7 @@ namespace Vzor
             AddComponent<QolController>();
             AddComponent<AimbotController>();
             AddComponent<MenuController>();
+            AddComponent<WebMapController>();
 
             try
             {

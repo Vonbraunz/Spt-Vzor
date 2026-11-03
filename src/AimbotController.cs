@@ -64,16 +64,26 @@ namespace Vzor
             }
         }
 
-        // nearest head to the screen centre, on screen, same selection the reference uses
+        // default: pick exactly the way the aimbot does, i.e. the closest target inside the fov
+        // cone, because that is the target you can actually see and justify. "Magic Bullet
+        // Nearest" swaps that for raw distance if you would rather shoot whatever is closest.
         private void UpdateMagicTarget(Camera camera)
         {
             Plugin.MagicBulletHasTarget = false;
 
+            if (!Plugin.AimMagicNearest.Value)
+            {
+                var fovTarget = FindTarget(camera);
+                if (!fovTarget.HasValue) return;
+
+                Plugin.MagicBulletTarget = fovTarget.Value;
+                Plugin.MagicBulletHasTarget = true;
+                return;
+            }
+
             var players = _world.AllAlivePlayersList;
             if (players == null) return;
 
-            var halfWidth = Screen.width * 0.5f;
-            var halfHeight = Screen.height * 0.5f;
             var maxDistance = Plugin.AimDistance.Value;
 
             var bestScore = float.MaxValue;
@@ -96,13 +106,9 @@ namespace Vzor
                     if (screen.x < 0f || screen.x > Screen.width || screen.y < 0f || screen.y > Screen.height)
                         continue;
 
-                    var dx = screen.x - halfWidth;
-                    var dy = screen.y - halfHeight;
-                    var score = dx * dx + dy * dy;
+                    if (distance >= bestScore) continue;
 
-                    if (score >= bestScore) continue;
-
-                    bestScore = score;
+                    bestScore = distance;
                     bestPoint = point;
                     found = true;
                 }
