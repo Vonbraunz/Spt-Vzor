@@ -29,6 +29,11 @@ namespace Vzor
         private float _nextPush;
         private float _nextStart;
         private float _nextExfil;
+        private float _nextLoot;
+        private float _nextTransit;
+        private string _transitJson = "[]";
+        private string _lootJson = "[]";
+        private DateTime _lootWantedUntil = DateTime.MinValue;
         private string _exfilJson = "[]";
 
         // entity key -> where it was last seen alive. when a key stops appearing, that last
@@ -89,6 +94,21 @@ namespace Vzor
                 {
                     _nextExfil = now + 2f;
                     _exfilJson = world != null ? BuildExfils(world) : "[]";
+                }
+
+                // transits are fixed for the raid, so they get a slow timer and no per-tick cost
+                if (now >= _nextTransit)
+                {
+                    _nextTransit = now + 10f;
+                    _transitJson = world != null ? BuildTransits(world) : "[]";
+                }
+
+                // loot is expensive to serialize, so only build it while a page is actually
+                // asking for it. ten seconds of grace covers a closed and reopened tab.
+                if (now >= _nextLoot)
+                {
+                    _nextLoot = now + 5f;
+                    if (world != null && DateTime.UtcNow < _lootWantedUntil) _lootJson = BuildLoot(world);
                 }
 
                 if (now < _nextPush) return;
@@ -208,6 +228,13 @@ namespace Vzor
                 if (path == "/state")
                 {
                     RespondText(stream, _state, "application/json");
+                    return;
+                }
+
+                if (path == "/loot")
+                {
+                    _lootWantedUntil = DateTime.UtcNow.AddSeconds(10);
+                    RespondText(stream, _lootJson, "application/json");
                     return;
                 }
 
@@ -493,6 +520,7 @@ namespace Vzor
 
             sb.Append("{\"inRaid\":true");
             sb.Append(",\"map\":\"").Append(JsonEscape(SafeLocationId(world))).Append('"');
+            sb.Append(",\"rate\":").Append(Num(Mathf.Clamp(Plugin.WebMapRate.Value, 1f, 30f)));
 
             if (me != null)
             {
@@ -591,6 +619,7 @@ namespace Vzor
             while (_dead.Count > 60) _dead.RemoveAt(0);
 
             sb.Append("],\"exfils\":").Append(_exfilJson);
+            sb.Append(",\"transits\":").Append(_transitJson);
 
             // bodies are entities that were alive on an earlier push and are gone now. the game
             // removes corpses before we can always read them, but it cannot hide the fact that
@@ -634,6 +663,160 @@ namespace Vzor
             }
 
             return name;
+        }
+
+        private static bool IsTransitPlaceholder(string value)
+        {
+            if (string.IsNullOrEmpty(value)) return true;
+
+            var trimmed = value.Trim();
+            if (trimmed.Length < 6) return false;
+
+            return trimmed.StartsWith("TRANSIT", StringComparison.OrdinalIgnoreCase) &&
+                   char.IsDigit(trimmed[trimmed.Length - 1]);
+        }
+
+        private string BuildTransits(GameWorld world)
+        {
+            var sb = new StringBuilder(1024);
+            sb.Append('[');
+
+            var first = true;
+
+            try
+            {
+                var controller = world.TransitController;
+                var points = controller != null ? controller.pointsById : null;
+
+                if (points != null)
+                {
+                    var enumerator = points.GetEnumerator();
+                    while (enumerator.MoveNext())
+                    {
+                        var point = enumerator.Current.Value;
+                        if (point == null) continue;
+
+                        try
+                        {
+                            var parameters = point.parameters;
+                            if (parameters == null) continue;
+
+                            // name is the "TRANSIT01" placeholder, description is "Transit to X".
+                            // prefer the description and let the placeholder die quietly.
+                            var description = parameters.description;
+                            var label = Localize(description);
+
+                            if (string.IsNullOrEmpty(label) || label == description)
+                            {
+                                var fallback = Localize(parameters.name);
+                                label = !string.IsNullOrEmpty(fallback) && !IsTransitPlaceholder(fallback)
+                                    ? fallback
+                                    : "Transit";
+                            }
+
+                            // target is a mongoid for the destination location, not a name
+                            var target = string.Empty;
+
+                            var position = point.transform.position;
+
+                            if (!first) sb.Append(',');
+                            first = false;
+
+                            sb.Append("{\"x\":").Append(Num(position.x));
+                            sb.Append(",\"z\":").Append(Num(position.z));
+                            sb.Append(",\"n\":\"").Append(JsonEscape(label)).Append('"');
+                            sb.Append(",\"t\":\"").Append(JsonEscape(target ?? string.Empty)).Append('"');
+                            sb.Append('}');
+                        }
+                        catch
+                        {
+                            // one malformed transit is not a reason to lose the rest
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                // no transit controller on this map
+            }
+
+            sb.Append(']');
+            return sb.ToString();
+        }
+
+        // every loose item in the raid, capped so a big map cannot turn this into a megabyte of
+        // json. the page filters and sorts; this only reports what exists and what it is worth.
+        private string BuildLoot(GameWorld world)
+        {
+            var sb = new StringBuilder(64 * 1024);
+            sb.Append('[');
+
+            var first = true;
+            var count = 0;
+
+            try
+            {
+                var list = world.LootList;
+                if (list != null)
+                {
+                    for (var i = 0; i < list.Count && count < 2000; i++)
+                    {
+                        LootItem item = null;
+
+                        try
+                        {
+                            var entry = list[i];
+                            if (entry != null) item = entry.TryCast<LootItem>();
+                        }
+                        catch
+                        {
+                            continue;
+                        }
+
+                        if (item == null) continue;
+
+                        var position = item.transform.position;
+                        var templateId = item.TemplateId;
+
+                        var price = 0;
+                        try
+                        {
+                            if (PriceDatabase.TryGet(templateId, out var marketPrice)) price = marketPrice;
+                        }
+                        catch
+                        {
+                            // price table not loaded for this file
+                        }
+
+                        var type = "?";
+                        try { type = item.GetType().Name; } catch { }
+
+                        // item.Name is the raw template id for loose loot. the esp already knows
+                        // how to turn a template id into a locale name, so borrow that.
+                        var name = item.Name;
+                        try { name = LootEspController.ResolveName(templateId, item.Item, item.Name); } catch { }
+
+                        if (!first) sb.Append(',');
+                        first = false;
+                        count++;
+
+                        sb.Append("{\"x\":").Append(Num(position.x));
+                        sb.Append(",\"y\":").Append(Num(position.y));
+                        sb.Append(",\"z\":").Append(Num(position.z));
+                        sb.Append(",\"n\":\"").Append(JsonEscape(name)).Append('"');
+                        sb.Append(",\"p\":").Append(price);
+                        sb.Append(",\"t\":\"").Append(JsonEscape(type)).Append('"');
+                        sb.Append('}');
+                    }
+                }
+            }
+            catch
+            {
+                // loot hydra not ready on this map
+            }
+
+            sb.Append(']');
+            return sb.ToString();
         }
 
         private string BuildExfils(GameWorld world)

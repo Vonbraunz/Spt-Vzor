@@ -17,7 +17,13 @@
   <div class="row dim" id="coords">-</div>
 </div>
 
-<div id="panel">
+<div id="topbar">
+  <button id="follow">follow: on</button>
+  <button id="loot">loot table</button>
+  <button id="alignment">alignment</button>
+</div>
+
+<div id="panel" class="hidden">
   <div class="row head">
     <strong>alignment</strong>
     <button id="toggle">hide</button>
@@ -31,7 +37,6 @@
       <button id="clearsamples">clear</button>
     </div>
     <div class="dim small" id="samples">0 points</div>
-    <div class="row buttons"><button id="follow">follow: on</button></div>
 
     <label>art rotation <span id="vrot">0</span>&deg;</label>
     <input type="range" id="rot" min="-180" max="180" step="0.1" value="0">
@@ -83,10 +88,47 @@
     <span><i style="background:#ffd23b"></i>raider</span>
     <span><i style="background:#ff3b3b"></i>boss</span>
     <span>&#9671; exfil</span>
+    <span>&#9633; transit</span>
     <span>&#10005; body</span>
   </div>
 </div>
 
+<div id="lootpanel" class="hidden">
+  <div class="row head">
+    <strong>loot</strong>
+    <span id="lootcount" class="dim small"></span>
+    <button id="lootrefresh">refresh</button>
+    <button id="lootclose">close</button>
+  </div>
+
+  <div class="row">
+    <input id="lootsearch" type="text" placeholder="search name">
+    <select id="lootcat">
+      <option value="">all</option>
+      <option value="weapon">weapons</option>
+      <option value="ammo">ammo</option>
+      <option value="medical">medical</option>
+      <option value="food">food</option>
+      <option value="key">keys</option>
+      <option value="gear">gear</option>
+      <option value="mod">mods</option>
+      <option value="barter">barter</option>
+      <option value="other">other</option>
+    </select>
+    <select id="lootsort">
+      <option value="price">by price</option>
+      <option value="name">by name</option>
+      <option value="dist">by distance</option>
+    </select>
+  </div>
+
+  <div class="row lootrow head">
+    <span>item</span><span class="price">price</span><span class="dist">dist</span>
+  </div>
+  <div id="lootrows"></div>
+</div>
+
 <script src="/app.js"></script>
+
 </body>
 </html>

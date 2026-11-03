@@ -1184,7 +1184,7 @@ namespace Vzor
         // the locale lookup returns the key itself on a miss, which is how "<templateId> Name"
         // ends up on screen looking like a cheat from 2009. compare against the key, then fall
         // back through the item object, then the raw name.
-        private static string ResolveName(string templateId, EFT.InventoryLogic.Item root, string rawName)
+        internal static string ResolveName(string templateId, EFT.InventoryLogic.Item root, string rawName)
         {
             if (!string.IsNullOrEmpty(templateId))
             {

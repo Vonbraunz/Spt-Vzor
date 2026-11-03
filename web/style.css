@@ -1,3 +1,30 @@
+#topbar {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+  background: #141a21ee;
+  border: 1px solid #2a333d;
+  border-radius: 6px;
+  padding: 6px 8px;
+  backdrop-filter: blur(4px);
+}
+
+#topbar button {
+  background: #1e2731;
+  color: #dfe6ee;
+  border: 1px solid #33404d;
+  border-radius: 4px;
+  padding: 3px 10px;
+  cursor: pointer;
+  font-size: 11px;
+}
+
+#topbar button:hover { background: #27333f; }
+
+#panel.hidden { display: none; }
 * { box-sizing: border-box; }
 
 html, body {
@@ -37,6 +64,8 @@ html, body {
   top: 10px;
   right: 12px;
   width: 286px;
+  max-height: 92vh;
+  overflow: auto;
   background: #141a21ee;
   border: 1px solid #2a333d;
   border-radius: 6px;
@@ -83,3 +112,51 @@ html, body {
 .dim { color: #7e8c9b; }
 .warn { color: #ffb14e; }
 .good { color: #58d68d; }
+
+#lootpanel {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  width: 480px;
+  max-height: 55vh;
+  background: #141a21ee;
+  border: 1px solid #2a333d;
+  border-radius: 6px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  backdrop-filter: blur(4px);
+}
+
+#lootpanel.hidden { display: none; }
+
+#lootpanel input,
+#lootpanel select {
+  background: #1e2731;
+  color: #dfe6ee;
+  border: 1px solid #33404d;
+  border-radius: 4px;
+  padding: 3px 6px;
+  font-size: 11px;
+}
+
+#lootpanel input { flex: 1; }
+
+#lootrows { overflow: auto; font-size: 11px; }
+
+.lootrow {
+  display: grid;
+  grid-template-columns: 1fr 96px 54px;
+  gap: 6px;
+  padding: 2px 4px;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.lootrow:hover { background: #1e2731; }
+.lootrow.head { cursor: default; color: #7e8c9b; font-size: 10px; text-transform: uppercase; }
+.lootrow.head:hover { background: transparent; }
+.lootrow .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lootrow .price { text-align: right; color: #ffd23b; font-family: Consolas, monospace; }
+.lootrow .dist { text-align: right; color: #7e8c9b; font-family: Consolas, monospace; }

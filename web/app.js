@@ -127,6 +127,7 @@ function project(x, z) {
 async function loadMap(id) {
   mapId = id;
   mapFailed = false;
+  selectedLoot = null;
   currentLayer = null;
   image = null;
   samples = loadSamples(id);
@@ -248,9 +249,22 @@ async function poll() {
     view.y = p.y;
   }
 
+  // loot spawns over the first couple of minutes, so take one fresh snapshot late enough for it
+  // to have settled, and only that once
+  if (state.inRaid && !wasInRaid) {
+    wasInRaid = true;
+    scheduleLootRefresh();
+  } else if (!state.inRaid) {
+    wasInRaid = false;
+  }
+
   updateCoords();
   draw();
-  setTimeout(poll, 120);
+
+  // follow the plugin's own push rate instead of guessing. one knob in the config, and the
+  // page stops asking more often than the data can change.
+  const hz = typeof state.rate === "number" && state.rate > 0 ? state.rate : 10;
+  setTimeout(poll, Math.max(33, Math.min(1000, Math.round(1000 / hz))));
 }
 
 function updateCoords() {
@@ -352,6 +366,29 @@ function draw() {
     ctx.textAlign = "left";
   }
 
+  // transits to another map. purple square so it cannot be confused with an exfil diamond.
+  for (const tr of (state.transits || [])) {
+    const s = project(tr.x, tr.z);
+    const r = 5;
+
+    ctx.strokeStyle = "#c58cff";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(s.x - r, s.y - r, r * 2, r * 2);
+
+    ctx.font = "10px Segoe UI, sans-serif";
+    ctx.textAlign = "center";
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = "#0b0e12cc";
+
+    // only append the destination when the transit name does not already say it
+    const showTarget = tr.t && tr.t !== tr.n && !(tr.n || "").toLowerCase().includes(tr.t.toLowerCase());
+    const label = tr.n + (showTarget ? " \u2192 " + tr.t : "");
+    ctx.strokeText(label, s.x, s.y - 11);
+    ctx.fillStyle = "#d9bcff";
+    ctx.fillText(label, s.x, s.y - 11);
+    ctx.textAlign = "left";
+  }
+
   // bodies. anything that was alive and then was not, marked where we last saw it. a plain
   // white x, no label, because a body's name is not actionable and there can be twenty.
   for (const body of (state.bodies || [])) {
@@ -409,6 +446,32 @@ function draw() {
   }
 
   if (typeof state.x === "number") drawSelf();
+
+  // whatever was picked in the loot table, kept on the map until you pick something else
+  if (selectedLoot && currentLayer) {
+    const s = project(selectedLoot.x, selectedLoot.z);
+
+    ctx.beginPath();
+    ctx.moveTo(s.x, s.y - 7);
+    ctx.lineTo(s.x + 7, s.y);
+    ctx.lineTo(s.x, s.y + 7);
+    ctx.lineTo(s.x - 7, s.y);
+    ctx.closePath();
+    ctx.fillStyle = "#ffd23b";
+    ctx.fill();
+    ctx.strokeStyle = "#0b0e12";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    const label = selectedLoot.n + (selectedLoot.p ? "  " + selectedLoot.p.toLocaleString() : "");
+    ctx.font = "11px Segoe UI, sans-serif";
+    ctx.textAlign = "left";
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = "#0b0e12cc";
+    ctx.strokeText(label, s.x + 10, s.y + 4);
+    ctx.fillStyle = "#ffe9a3";
+    ctx.fillText(label, s.x + 10, s.y + 4);
+  }
 
   if (pending) {
     const s = project(pending.x, pending.z);
@@ -894,6 +957,10 @@ function bindCalibration() {
 
   document.getElementById("follow").addEventListener("click", () => setFollow(!follow));
 
+  document.getElementById("alignment").addEventListener("click", () => {
+    document.getElementById("panel").classList.toggle("hidden");
+  });
+
   document.getElementById("fit").addEventListener("click", fitView);
 
   document.getElementById("copy").addEventListener("click", () => {
@@ -992,7 +1059,14 @@ window.addEventListener("keydown", e => {
     case "s": case "S": saveCalibration(); handled = false; break;
     case "f": case "F": fitView(); handled = false; break;
     case "Escape":
-      if (pending) { pending = null; canvas.style.cursor = "grab"; setStatus("cancelled", "dim"); }
+      if (pending) {
+        pending = null;
+        canvas.style.cursor = "grab";
+        setStatus("cancelled", "dim");
+      } else if (selectedLoot) {
+        selectedLoot = null;
+        draw();
+      }
       handled = false;
       break;
     default: handled = false;
@@ -1034,6 +1108,147 @@ async function checkVersion() {
   setTimeout(checkVersion, 3000);
 }
 
+/* ---------- loot table ---------- */
+
+let lootOpen = false;
+let lootRefreshTimer = null;
+let wasInRaid = false;
+let lootItems = [];
+let selectedLoot = null;
+
+function lootCategory(type) {
+  const s = (type || "").toLowerCase();
+
+  if (s.includes("weapon") || s.includes("knife") || s.includes("throw")) return "weapon";
+  if (s.includes("ammo")) return "ammo";
+  if (s.includes("med") || s.includes("stim")) return "medical";
+  if (s.includes("food") || s.includes("drink")) return "food";
+  if (s.includes("key")) return "key";
+  if (s.includes("armor") || s.includes("helmet") || s.includes("vest") ||
+      s.includes("rig") || s.includes("backpack")) return "gear";
+  if (s.includes("mod")) return "mod";
+  if (s.includes("barter") || s.includes("valuable")) return "barter";
+
+  return "other";
+}
+
+function lootDistance(item) {
+  if (typeof state.x !== "number" || typeof state.z !== "number") return 0;
+  return Math.hypot(item.x - state.x, item.z - state.z);
+}
+
+function escapeHtml(text) {
+  return String(text).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+}
+
+// the plugin only builds the list while a page is asking for it, so the first request can come
+// back empty. retry a couple of times and then leave it alone, no interval.
+async function fetchLoot(attempt) {
+  const tryIndex = attempt || 0;
+
+  try {
+    const r = await fetch("/loot", { cache: "no-store" });
+    if (!r.ok) throw new Error("no loot feed");
+    lootItems = await r.json();
+  } catch (e) {
+    lootItems = [];
+  }
+
+  renderLoot();
+
+  // the plugin rebuilds its list on a five second tick, so keep asking for about that long
+  // before deciding the raid genuinely has no loot
+  if (lootItems.length === 0 && tryIndex < 5 && lootOpen) {
+    setTimeout(() => fetchLoot(tryIndex + 1), 1000);
+  }
+}
+
+function renderLoot() {
+  const rows = document.getElementById("lootrows");
+  const count = document.getElementById("lootcount");
+  if (!rows) return;
+
+  const search = (document.getElementById("lootsearch").value || "").trim().toLowerCase();
+  const category = document.getElementById("lootcat").value;
+  const sort = document.getElementById("lootsort").value;
+
+  const list = lootItems.filter(item => {
+    if (search && !(item.n || "").toLowerCase().includes(search)) return false;
+    if (category && lootCategory(item.t) !== category) return false;
+    return true;
+  });
+
+  for (const item of list) item.d = lootDistance(item);
+
+  if (sort === "price") list.sort((a, b) => b.p - a.p);
+  else if (sort === "name") list.sort((a, b) => String(a.n).localeCompare(String(b.n)));
+  else list.sort((a, b) => a.d - b.d);
+
+  const total = list.length;
+  const shown = list.slice(0, 300);
+
+  count.textContent = total === 0 ? "nothing" : shown.length + " of " + total;
+
+  let html = "";
+  for (const item of shown) {
+    html += '<div class="lootrow" data-x="' + item.x + '" data-z="' + item.z +
+      '" data-n="' + escapeHtml(item.n || "?") + '" data-p="' + (item.p || 0) + '">' +
+      '<span class="name">' + escapeHtml(item.n || "?") + '</span>' +
+      '<span class="price">' + (item.p ? item.p.toLocaleString() : "-") + '</span>' +
+      '<span class="dist">' + Math.round(item.d) + 'm</span>' +
+      '</div>';
+  }
+
+  rows.innerHTML = html;
+}
+
+function scheduleLootRefresh() {
+  if (lootRefreshTimer) clearTimeout(lootRefreshTimer);
+
+  lootRefreshTimer = setTimeout(() => {
+    lootRefreshTimer = null;
+    if (lootOpen) fetchLoot(0);
+  }, 120000);
+}
+
+function setLootOpen(open) {
+  lootOpen = open;
+  document.getElementById("lootpanel").classList.toggle("hidden", !open);
+
+  if (open) fetchLoot(0);
+}
+
+function bindLoot() {
+  document.getElementById("loot").addEventListener("click", () => setLootOpen(!lootOpen));
+  document.getElementById("lootclose").addEventListener("click", () => setLootOpen(false));
+  document.getElementById("lootrefresh").addEventListener("click", () => fetchLoot(0));
+
+  document.getElementById("lootsearch").addEventListener("input", renderLoot);
+  document.getElementById("lootcat").addEventListener("change", renderLoot);
+  document.getElementById("lootsort").addEventListener("change", renderLoot);
+
+  document.getElementById("lootrows").addEventListener("click", e => {
+    const row = e.target.closest(".lootrow[data-x]");
+    if (!row || !currentLayer) return;
+
+    const x = parseFloat(row.dataset.x);
+    const z = parseFloat(row.dataset.z);
+    const q = worldToImage(x, z, currentLayer);
+
+    selectedLoot = {
+      x: x,
+      z: z,
+      n: row.dataset.n || "?",
+      p: parseInt(row.dataset.p || "0", 10)
+    };
+
+    // centre once. after that it is a marker you can pan away from, not a camera lock.
+    view.x = q.x;
+    view.y = q.y;
+    draw();
+  });
+}
+
 /* ---------- boot ---------- */
 
 try { showNames = localStorage.getItem("vzor.names") !== "0"; } catch (e) { }
@@ -1049,6 +1264,7 @@ try { follow = localStorage.getItem("vzor.follow") !== "0"; } catch (e) { }
 setFollow(follow);
 
 bindCalibration();
+bindLoot();
 resize();
 updateSampleUi();
 checkVersion();
