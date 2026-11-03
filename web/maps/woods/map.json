@@ -130,5 +130,140 @@
                                           }
                                       ]
                    }
+               ],
+    "labels":  [
+                   {
+                       "text":  "Sawmill",
+                       "x":  10,
+                       "y":  -3,
+                       "z":  0,
+                       "size":  16
+                   },
+                   {
+                       "text":  "Scav Town",
+                       "x":  -485,
+                       "y":  -390,
+                       "z":  0,
+                       "size":  16
+                   },
+                   {
+                       "text":  "Old Sawmill",
+                       "x":  -517,
+                       "y":  -210,
+                       "z":  0,
+                       "size":  16
+                   },
+                   {
+                       "text":  "Cultist Village",
+                       "x":  -80,
+                       "y":  -705,
+                       "z":  0,
+                       "size":  16
+                   },
+                   {
+                       "text":  "USEC Camp",
+                       "x":  290,
+                       "y":  -475,
+                       "z":  0,
+                       "size":  16
+                   },
+                   {
+                       "text":  "Military Camp",
+                       "x":  -188,
+                       "y":  235,
+                       "z":  0,
+                       "size":  16
+                   },
+                   {
+                       "text":  "Ponds",
+                       "x":  -5,
+                       "y":  -515,
+                       "z":  0,
+                       "size":  16
+                   },
+                   {
+                       "text":  "Crash Site",
+                       "x":  -252,
+                       "y":  -37,
+                       "z":  0,
+                       "size":  16
+                   },
+                   {
+                       "text":  "Checkpoint",
+                       "x":  239,
+                       "y":  -65,
+                       "z":  0,
+                       "size":  12
+                   },
+                   {
+                       "text":  "Shack",
+                       "x":  244,
+                       "y":  125,
+                       "z":  0,
+                       "size":  12
+                   },
+                   {
+                       "text":  "Lumber",
+                       "x":  -16,
+                       "y":  -122,
+                       "z":  0,
+                       "size":  12
+                   },
+                   {
+                       "text":  "Cabins",
+                       "x":  -3,
+                       "y":  -74,
+                       "z":  0,
+                       "size":  14
+                   },
+                   {
+                       "text":  "Bus Stop",
+                       "x":  -234,
+                       "y":  368,
+                       "z":  0,
+                       "size":  12
+                   },
+                   {
+                       "text":  "Jaeger\u0027s Camp",
+                       "x":  -327,
+                       "y":  19,
+                       "z":  0,
+                       "size":  12
+                   },
+                   {
+                       "text":  "Sniper Rock",
+                       "x":  85,
+                       "y":  -147,
+                       "z":  0,
+                       "size":  12
+                   },
+                   {
+                       "text":  "Convoy",
+                       "x":  200,
+                       "y":  -606,
+                       "z":  0,
+                       "size":  12
+                   },
+                   {
+                       "text":  "ZB-016",
+                       "x":  -397,
+                       "y":  18,
+                       "z":  6,
+                       "size":  12
+                   },
+                   {
+                       "text":  "ZB-014",
+                       "x":  438,
+                       "y":  65,
+                       "z":  0,
+                       "size":  12
+                   },
+                   {
+                       "text":  "Train Depot",
+                       "x":  -657,
+                       "y":  138,
+                       "z":  0,
+                       "size":  12
+                   }
                ]
 }

@@ -161,5 +161,98 @@
                                           }
                                       ]
                    }
+               ],
+    "labels":  [
+                   {
+                       "text":  "TerraGroup",
+                       "x":  -50,
+                       "y":  0,
+                       "z":  0,
+                       "size":  16
+                   },
+                   {
+                       "text":  "Skyside",
+                       "x":  150,
+                       "y":  1,
+                       "z":  0,
+                       "size":  16
+                   },
+                   {
+                       "text":  "Fusion",
+                       "x":  141,
+                       "y":  142,
+                       "z":  0,
+                       "size":  16
+                   },
+                   {
+                       "text":  "Empire",
+                       "x":  14,
+                       "y":  201,
+                       "z":  0,
+                       "size":  16
+                   },
+                   {
+                       "text":  "Capital Insight",
+                       "x":  115,
+                       "y":  285,
+                       "z":  0,
+                       "size":  16
+                   },
+                   {
+                       "text":  "Nakatani",
+                       "x":  2,
+                       "y":  324,
+                       "z":  0,
+                       "size":  16
+                   },
+                   {
+                       "text":  "Elemental Global",
+                       "x":  80,
+                       "y":  -118,
+                       "z":  0,
+                       "size":  16
+                   },
+                   {
+                       "text":  "Oasis",
+                       "x":  115,
+                       "y":  104,
+                       "z":  22,
+                       "size":  16
+                   },
+                   {
+                       "text":  "ASAP Winery",
+                       "x":  115,
+                       "y":  30,
+                       "z":  22,
+                       "size":  12
+                   },
+                   {
+                       "text":  "Tarbank",
+                       "x":  43,
+                       "y":  150,
+                       "z":  0,
+                       "size":  14
+                   },
+                   {
+                       "text":  "GAGRIN Hotel",
+                       "x":  58,
+                       "y":  234,
+                       "z":  0,
+                       "size":  12
+                   },
+                   {
+                       "text":  "M Showroom",
+                       "x":  97,
+                       "y":  223,
+                       "z":  0,
+                       "size":  12
+                   },
+                   {
+                       "text":  "Science Offices",
+                       "x":  -13,
+                       "y":  48,
+                       "z":  29,
+                       "size":  12
+                   }
                ]
 }

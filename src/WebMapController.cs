@@ -9,6 +9,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using BepInEx.Configuration;
 using EFT;
+using EFT.Interactive;
 using UnityEngine;
 
 namespace Vzor
@@ -27,6 +28,8 @@ namespace Vzor
         private string _calibrationPath;
         private float _nextPush;
         private float _nextStart;
+        private float _nextExfil;
+        private string _exfilJson = "[]";
 
         private void Awake()
         {
@@ -55,6 +58,15 @@ namespace Vzor
                 }
 
                 var now = Time.unscaledTime;
+
+                // exfils move about as often as the weather, so they get their own slower timer
+                if (now >= _nextExfil)
+                {
+                    _nextExfil = now + 2f;
+                    var world = WorldTracker.Current;
+                    _exfilJson = world != null ? BuildExfils(world) : "[]";
+                }
+
                 if (now < _nextPush) return;
                 _nextPush = now + 1f / Mathf.Clamp(Plugin.WebMapRate.Value, 1f, 30f);
                 _state = BuildState();
@@ -175,6 +187,12 @@ namespace Vzor
                     return;
                 }
 
+                if (path == "/version")
+                {
+                    RespondText(stream, VersionStamp(), "application/json");
+                    return;
+                }
+
                 if (path == "/calibration")
                 {
                     if (method == "POST")
@@ -256,6 +274,21 @@ namespace Vzor
             }
 
             return -1;
+        }
+
+        // used by the page to notice that app.js changed on disk, so edits apply without the
+        // user having to remember to press f5
+        private string VersionStamp()
+        {
+            try
+            {
+                var file = Path.Combine(_root, "app.js");
+                return "{\"v\":\"" + File.GetLastWriteTimeUtc(file).Ticks + "\"}";
+            }
+            catch
+            {
+                return "{\"v\":\"0\"}";
+            }
         }
 
         private void ServeFile(NetworkStream stream, string path)
@@ -491,7 +524,87 @@ namespace Vzor
                 }
             }
 
+            sb.Append("],\"exfils\":").Append(_exfilJson);
+            sb.Append(",\"corpses\":[");
+
+            var firstCorpse = true;
+            try
+            {
+                var corpses = world.ObservedPlayersCorpses;
+                if (corpses != null)
+                {
+                    var corpseEnumerator = corpses.GetEnumerator();
+                    while (corpseEnumerator.MoveNext())
+                    {
+                        var corpse = corpseEnumerator.Current.Value;
+                        if (corpse == null) continue;
+
+                        var position = corpse.transform.position;
+                        if (!firstCorpse) sb.Append(',');
+                        firstCorpse = false;
+
+                        sb.Append("{\"x\":").Append(Num(position.x));
+                        sb.Append(",\"y\":").Append(Num(position.y));
+                        sb.Append(",\"z\":").Append(Num(position.z)).Append('}');
+                    }
+                }
+            }
+            catch
+            {
+                // corpse list not ready
+            }
+
             sb.Append("]}");
+            return sb.ToString();
+        }
+
+        private string BuildExfils(GameWorld world)
+        {
+            var sb = new StringBuilder("[");
+            var first = true;
+
+            try
+            {
+                var controller = world.ExfiltrationController;
+                var points = controller != null ? controller.ExfiltrationPoints : null;
+
+                if (points != null)
+                {
+                    for (var i = 0; i < points.Length; i++)
+                    {
+                        var point = points[i];
+                        if (point == null) continue;
+
+                        var settings = point.Settings;
+                        if (settings == null) continue;
+
+                        var name = settings.Name;
+                        if (string.IsNullOrEmpty(name)) continue;
+
+                        var status = point.Status;
+                        if (status == EExfiltrationStatus.NotPresent || status == EExfiltrationStatus.Hidden)
+                            continue;
+
+                        var position = point.transform.position;
+                        var open = status == EExfiltrationStatus.RegularMode ||
+                                   status == EExfiltrationStatus.Countdown;
+
+                        if (!first) sb.Append(',');
+                        first = false;
+
+                        sb.Append("{\"x\":").Append(Num(position.x));
+                        sb.Append(",\"z\":").Append(Num(position.z));
+                        sb.Append(",\"name\":\"").Append(JsonEscape(name)).Append('"');
+                        sb.Append(",\"open\":").Append(open ? "true" : "false").Append('}');
+                    }
+                }
+            }
+            catch
+            {
+                // exfil controller not ready on this map
+            }
+
+            sb.Append(']');
             return sb.ToString();
         }
 

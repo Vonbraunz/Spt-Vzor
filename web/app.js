@@ -16,6 +16,10 @@ let cal = { rotation: 0, scale: 1, offsetX: 0, offsetY: 0, flipX: 1, flipY: 1 };
 let view = { zoom: 1, x: 0, y: 0 };
 let saveTimer = null;
 
+let labels = [];
+let labelFlip = false;
+let showNames = true;
+let follow = true;
 let samples = [];
 let pending = null;
 let lastDown = null;
@@ -127,6 +131,17 @@ async function loadMap(id) {
     const r = await fetch("/maps/" + encodeURIComponent(id) + "/map.json", { cache: "no-store" });
     if (!r.ok) throw new Error("no art for " + id);
     mapCfg = await r.json();
+    labels = mapCfg.labels || [];
+
+    // the map can declare that its labels are authored 180 out from its art, which some of the
+    // rework sets are. a saved toggle in the browser still wins.
+    labelFlip = mapCfg.labelFlip === true;
+    try {
+      const savedFlip = localStorage.getItem("vzor.labelFlip." + id);
+      if (savedFlip !== null) labelFlip = savedFlip === "1";
+    } catch (e) { }
+    const lflip = document.getElementById("lflip");
+    if (lflip) lflip.checked = labelFlip;
   } catch (e) {
     mapCfg = null;
     mapFailed = true;
@@ -205,6 +220,12 @@ async function poll() {
     setStatus("not connected", "warn");
   }
 
+  if (follow && state.inRaid && currentLayer && typeof state.x === "number") {
+    const p = worldToImage(state.x, state.z, currentLayer);
+    view.x = p.x;
+    view.y = p.y;
+  }
+
   updateCoords();
   draw();
   setTimeout(poll, 120);
@@ -259,7 +280,85 @@ function draw() {
     ctx.restore();
   }
 
+  // place names come from the map config, they are not in the svg. they belong to the art, so
+  // they take the same transform and move with it while you calibrate.
+  if (showNames && labels.length) {
+    const m = calMatrix(currentLayer);
+    ctx.globalAlpha = 0.55;
+
+    for (const L of labels) {
+      let p = worldToImage(L.x, L.y, currentLayer);
+
+      // some maps were exported with the drawing rotated inside its own bounds, so the art and
+      // the label coordinates disagree by 180. this flips labels only, per map.
+      if (labelFlip) p = { x: currentLayer.width - p.x, y: currentLayer.height - p.y };
+
+      const q = calApply(m, p);
+      const s = toScreen(q);
+      if (s.x < -90 || s.x > canvas.width + 90 || s.y < -20 || s.y > canvas.height + 20) continue;
+
+      const size = Math.max(9, Math.min(26, (L.size || 16) * view.zoom * cal.scale));
+      ctx.font = size + "px Segoe UI, sans-serif";
+      ctx.textAlign = "center";
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = "#0b0e12cc";
+      ctx.strokeText(L.text, s.x, s.y);
+      ctx.fillStyle = "#c9d4e0";
+      ctx.fillText(L.text, s.x, s.y);
+    }
+
+    ctx.textAlign = "left";
+    ctx.globalAlpha = 1;
+  }
+
   if (!state.inRaid) return;
+
+  // exfils. filled cyan when open, hollow red when not, name above the diamond.
+  for (const ex of (state.exfils || [])) {
+    const s = project(ex.x, ex.z);
+    const r = 6;
+
+    ctx.beginPath();
+    ctx.moveTo(s.x, s.y - r);
+    ctx.lineTo(s.x + r, s.y);
+    ctx.lineTo(s.x, s.y + r);
+    ctx.lineTo(s.x - r, s.y);
+    ctx.closePath();
+
+    if (ex.open) {
+      ctx.fillStyle = "#00e5ff";
+      ctx.fill();
+    } else {
+      ctx.strokeStyle = "#ff5555";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+
+    ctx.font = "10px Segoe UI, sans-serif";
+    ctx.textAlign = "center";
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = "#0b0e12cc";
+    ctx.strokeText(ex.name, s.x, s.y - 10);
+    ctx.fillStyle = ex.open ? "#8fe9ff" : "#ff9a9a";
+    ctx.fillText(ex.name, s.x, s.y - 10);
+    ctx.textAlign = "left";
+  }
+
+  // bodies. a plain white x, no label, because a corpse name is not actionable and there can
+  // be twenty of them.
+  for (const body of (state.corpses || [])) {
+    const s = project(body.x, body.z);
+    const r = 5;
+
+    ctx.beginPath();
+    ctx.moveTo(s.x - r, s.y - r);
+    ctx.lineTo(s.x + r, s.y + r);
+    ctx.moveTo(s.x + r, s.y - r);
+    ctx.lineTo(s.x - r, s.y + r);
+    ctx.strokeStyle = "#ffffffee";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
 
   const players = state.players || [];
 
@@ -275,12 +374,14 @@ function draw() {
     ctx.lineWidth = 1;
     ctx.stroke();
 
-    if (view.zoom > 0.7) {
-      ctx.font = "11px Segoe UI, sans-serif";
-      ctx.fillStyle = "#dfe6ee";
-      ctx.textAlign = "left";
-      ctx.fillText((p.name || "?") + "  " + Math.round(p.dist || 0) + "m", s.x + 7, s.y + 4);
-    }
+    ctx.font = "11px Segoe UI, sans-serif";
+    ctx.fillStyle = "#dfe6ee";
+    ctx.textAlign = "left";
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = "#0b0e12cc";
+    const text = contactLabel(p) + "  " + Math.round(p.dist || 0) + "m";
+    ctx.strokeText(text, s.x + 7, s.y + 4);
+    ctx.fillText(text, s.x + 7, s.y + 4);
   }
 
   if (typeof state.x === "number") drawSelf();
@@ -321,6 +422,12 @@ function drawSelf() {
   ctx.strokeStyle = "#4f8cff";
   ctx.lineWidth = 3;
   ctx.stroke();
+}
+
+// scavs have generated russian nicknames that mean nothing to anyone. role colour already
+// tells us the bucket, so scav grey becomes the literal word.
+function contactLabel(p) {
+  return roleColor(p.role, p.side) === "#d6d6d6" ? "Scav" : (p.name || "?");
 }
 
 function roleColor(role, side) {
@@ -557,6 +664,22 @@ function clearSamples() {
   setStatus("points cleared", "dim");
 }
 
+function setFollow(on) {
+  follow = on;
+
+  const button = document.getElementById("follow");
+  if (button) button.textContent = follow ? "follow: on" : "follow: off";
+
+  try { localStorage.setItem("vzor.follow", follow ? "1" : "0"); } catch (e) { }
+
+  if (follow && state.inRaid && currentLayer && typeof state.x === "number") {
+    const p = worldToImage(state.x, state.z, currentLayer);
+    view.x = p.x;
+    view.y = p.y;
+    draw();
+  }
+}
+
 function bindCalibration() {
   const rot = document.getElementById("rot");
   const scale = document.getElementById("scale");
@@ -611,6 +734,20 @@ function bindCalibration() {
     saveCalibration();
   });
 
+  document.getElementById("lflip").addEventListener("change", e => {
+    labelFlip = e.target.checked;
+    try { localStorage.setItem("vzor.labelFlip." + mapId, labelFlip ? "1" : "0"); } catch (err) { }
+    draw();
+  });
+
+  document.getElementById("names").addEventListener("change", e => {
+    showNames = e.target.checked;
+    try { localStorage.setItem("vzor.names", showNames ? "1" : "0"); } catch (err) { }
+    draw();
+  });
+
+  document.getElementById("follow").addEventListener("click", () => setFollow(!follow));
+
   document.getElementById("fit").addEventListener("click", fitView);
 
   document.getElementById("copy").addEventListener("click", () => {
@@ -664,6 +801,7 @@ window.addEventListener("mousemove", e => {
     syncInputs();
     scheduleSave();
   } else {
+    if (follow) setFollow(false);
     view.x -= dx / view.zoom;
     view.y -= dy / view.zoom;
   }
@@ -703,6 +841,7 @@ window.addEventListener("keydown", e => {
     case "]" : cal.rotation += e.shiftKey ? 5 : 0.5; break;
     case "+" : case "=" : cal.scale *= 1.005; break;
     case "-" : case "_" : cal.scale /= 1.005; break;
+    case "c": case "C": setFollow(!follow); handled = false; break;
     case "p": case "P": capturePoint(); handled = false; break;
     case "s": case "S": saveCalibration(); handled = false; break;
     case "f": case "F": fitView(); handled = false; break;
@@ -721,9 +860,44 @@ window.addEventListener("keydown", e => {
   }
 });
 
+/* ---------- asset hot reload ---------- */
+
+// the plugin reports the mtime of app.js. if it changes while this tab is open, reload, so an
+// edit lands without anyone remembering to press f5.
+let assetVersion = null;
+
+async function checkVersion() {
+  try {
+    const r = await fetch("/version", { cache: "no-store" });
+    if (!r.ok) {
+      setTimeout(checkVersion, 3000);
+      return;
+    }
+
+    const current = await r.json();
+
+    if (assetVersion === null) assetVersion = current.v;
+    else if (current.v !== assetVersion) {
+      location.reload();
+      return;
+    }
+  } catch (e) {
+    // old plugin without the endpoint, or not in raid yet
+  }
+
+  setTimeout(checkVersion, 3000);
+}
+
 /* ---------- boot ---------- */
+
+try { showNames = localStorage.getItem("vzor.names") !== "0"; } catch (e) { }
+document.getElementById("names").checked = showNames;
+
+try { follow = localStorage.getItem("vzor.follow") !== "0"; } catch (e) { }
+setFollow(follow);
 
 bindCalibration();
 resize();
 updateSampleUi();
+checkVersion();
 poll();

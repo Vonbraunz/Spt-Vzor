@@ -1,7 +1,8 @@
-﻿{
+{
     "id":  "lighthouse",
     "display":  "Lighthouse (Rework)",
     "rotation":  180,
+  "labelFlip": true,
     "bounds":  {
                    "Min":  {
                                "x":  -545,
@@ -43,6 +44,176 @@
                                                       }
                                           }
                                       ]
+                   }
+               ],
+    "labels":  [
+                   {
+                       "text":  "Train Yard",
+                       "x":  -30,
+                       "y":  -882,
+                       "z":  0,
+                       "size":  16
+                   },
+                   {
+                       "text":  "Water Treatment",
+                       "x":  -65,
+                       "y":  -600,
+                       "z":  0,
+                       "size":  16
+                   },
+                   {
+                       "text":  "Plant 1",
+                       "x":  40,
+                       "y":  -618,
+                       "z":  0,
+                       "size":  16
+                   },
+                   {
+                       "text":  "Plant 2",
+                       "x":  -97,
+                       "y":  -737,
+                       "z":  0,
+                       "size":  16
+                   },
+                   {
+                       "text":  "Plant 3",
+                       "x":  -189,
+                       "y":  -665,
+                       "z":  0,
+                       "size":  16
+                   },
+                   {
+                       "text":  "Pipes",
+                       "x":  -182,
+                       "y":  -552,
+                       "z":  0,
+                       "size":  16
+                   },
+                   {
+                       "text":  "Gunner Nest",
+                       "x":  18,
+                       "y":  -453,
+                       "z":  0,
+                       "size":  16
+                   },
+                   {
+                       "text":  "Island",
+                       "x":  -177,
+                       "y":  -356,
+                       "z":  0,
+                       "size":  16
+                   },
+                   {
+                       "text":  "Cabins",
+                       "x":  -278,
+                       "y":  -323,
+                       "z":  0,
+                       "size":  16
+                   },
+                   {
+                       "text":  "Cottages",
+                       "x":  -162,
+                       "y":  -212,
+                       "z":  0,
+                       "size":  16
+                   },
+                   {
+                       "text":  "Convenience",
+                       "x":  -55,
+                       "y":  -270,
+                       "z":  0,
+                       "size":  16
+                   },
+                   {
+                       "text":  "Red Brick",
+                       "x":  -75,
+                       "y":  -304,
+                       "z":  0,
+                       "size":  16
+                   },
+                   {
+                       "text":  "Hillside",
+                       "x":  -151,
+                       "y":  -258,
+                       "z":  0,
+                       "size":  16
+                   },
+                   {
+                       "text":  "Boathouses",
+                       "x":  125,
+                       "y":  -153,
+                       "z":  0,
+                       "size":  16
+                   },
+                   {
+                       "text":  "Dead Tree",
+                       "x":  62,
+                       "y":  -60,
+                       "z":  0,
+                       "size":  16
+                   },
+                   {
+                       "text":  "Construction",
+                       "x":  0,
+                       "y":  -188,
+                       "z":  0,
+                       "size":  16
+                   },
+                   {
+                       "text":  "Tennis Court",
+                       "x":  -70,
+                       "y":  129,
+                       "z":  0,
+                       "size":  16
+                   },
+                   {
+                       "text":  "Lightkeeper Island",
+                       "x":  382,
+                       "y":  496,
+                       "z":  0,
+                       "size":  16
+                   },
+                   {
+                       "text":  "Crash Site",
+                       "x":  -125,
+                       "y":  296,
+                       "z":  0,
+                       "size":  16
+                   },
+                   {
+                       "text":  "Logistics Terminal",
+                       "x":  42.06,
+                       "y":  -850.525,
+                       "z":  0,
+                       "size":  16
+                   },
+                   {
+                       "text":  "Radar Station",
+                       "x":  388.17,
+                       "y":  551.525,
+                       "z":  0,
+                       "size":  16
+                   },
+                   {
+                       "text":  "Summer Hotel",
+                       "x":  -98.27,
+                       "y":  -70.945,
+                       "z":  0,
+                       "size":  16
+                   },
+                   {
+                       "text":  "Grand Chalet",
+                       "x":  -115.935,
+                       "y":  92.04,
+                       "z":  0,
+                       "size":  16
+                   },
+                   {
+                       "text":  "Fishing Village",
+                       "x":  90.11,
+                       "y":  460.33,
+                       "z":  0,
+                       "size":  16
                    }
                ]
 }

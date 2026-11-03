@@ -137,5 +137,161 @@
                                           }
                                       ]
                    }
+               ],
+    "labels":  [
+                   {
+                       "text":  "Pit",
+                       "x":  0,
+                       "y":  17,
+                       "z":  0,
+                       "size":  14
+                   },
+                   {
+                       "text":  "Underground Stash",
+                       "x":  -2,
+                       "y":  -22,
+                       "z":  0,
+                       "size":  14
+                   },
+                   {
+                       "text":  "Boilers",
+                       "x":  56,
+                       "y":  6,
+                       "z":  0,
+                       "size":  14
+                   },
+                   {
+                       "text":  "Pumping Station",
+                       "x":  42,
+                       "y":  -12,
+                       "z":  0,
+                       "size":  14
+                   },
+                   {
+                       "text":  "Glass Hall",
+                       "x":  70,
+                       "y":  -15,
+                       "z":  0,
+                       "size":  14
+                   },
+                   {
+                       "text":  "Forklifts",
+                       "x":  66,
+                       "y":  -41,
+                       "z":  0,
+                       "size":  14
+                   },
+                   {
+                       "text":  "East Halls",
+                       "x":  45,
+                       "y":  -40,
+                       "z":  0,
+                       "size":  14
+                   },
+                   {
+                       "text":  "Heli Crash",
+                       "x":  33,
+                       "y":  -6,
+                       "z":  0,
+                       "size":  14
+                   },
+                   {
+                       "text":  "Rafters",
+                       "x":  19,
+                       "y":  6,
+                       "z":  0,
+                       "size":  14
+                   },
+                   {
+                       "text":  "Silos",
+                       "x":  5,
+                       "y":  11,
+                       "z":  0,
+                       "size":  14
+                   },
+                   {
+                       "text":  "Connector",
+                       "x":  30,
+                       "y":  18,
+                       "z":  0,
+                       "size":  14
+                   },
+                   {
+                       "text":  "Sky Bridge",
+                       "x":  35,
+                       "y":  28,
+                       "z":  0,
+                       "size":  14
+                   },
+                   {
+                       "text":  "North Stairs",
+                       "x":  36.5,
+                       "y":  38,
+                       "z":  0,
+                       "size":  14
+                   },
+                   {
+                       "text":  "Locked Office",
+                       "x":  30,
+                       "y":  40,
+                       "z":  0,
+                       "size":  14
+                   },
+                   {
+                       "text":  "Breach Room",
+                       "x":  24,
+                       "y":  40,
+                       "z":  0,
+                       "size":  14
+                   },
+                   {
+                       "text":  "Main Office",
+                       "x":  16,
+                       "y":  40,
+                       "z":  0,
+                       "size":  14
+                   },
+                   {
+                       "text":  "South Stairs",
+                       "x":  9,
+                       "y":  40,
+                       "z":  0,
+                       "size":  14
+                   },
+                   {
+                       "text":  "Platform",
+                       "x":  -2,
+                       "y":  36,
+                       "z":  0,
+                       "size":  14
+                   },
+                   {
+                       "text":  "Blue Containers",
+                       "x":  -17,
+                       "y":  50,
+                       "z":  0,
+                       "size":  14
+                   },
+                   {
+                       "text":  "Wood Room",
+                       "x":  -45,
+                       "y":  61,
+                       "z":  0,
+                       "size":  14
+                   },
+                   {
+                       "text":  "Scav Bunker",
+                       "x":  -20,
+                       "y":  23,
+                       "z":  0,
+                       "size":  14
+                   },
+                   {
+                       "text":  "Med Tent",
+                       "x":  -18,
+                       "y":  -28,
+                       "z":  0,
+                       "size":  14
+                   }
                ]
 }

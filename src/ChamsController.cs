@@ -28,7 +28,6 @@ namespace Vzor
         private Material _material;
         private string _materialSignature;
         private readonly Dictionary<ChamsType, Material> _typeMaterials = new Dictionary<ChamsType, Material>();
-        private readonly HashSet<ChamsType> _loggedTypes = new HashSet<ChamsType>();
 
         private enum ChamsType
         {
@@ -163,36 +162,6 @@ namespace Vzor
             {
                 _shaderLogged = true;
                 Plugin.Logger.LogInfo("loaded shader '" + name + "'");
-                DumpShaderProperties();
-            }
-        }
-
-        // one shot diagnostic. the shader ships compiled, so this is the only way to find out
-        // which colour properties it actually has without unpacking the bundle by hand.
-        private void DumpShaderProperties()
-        {
-            try
-            {
-                var count = _shader.GetPropertyCount();
-                var names = new List<string>();
-
-                for (var i = 0; i < count; i++)
-                {
-                    try
-                    {
-                        names.Add(_shader.GetPropertyName(i) + ":" + _shader.GetPropertyType(i));
-                    }
-                    catch
-                    {
-                        names.Add("?");
-                    }
-                }
-
-                Plugin.Logger.LogInfo("chams shader properties (" + count + "): " + string.Join(", ", names));
-            }
-            catch (Exception ex)
-            {
-                Plugin.Logger.LogWarning("chams: could not read shader properties: " + ex.Message);
             }
         }
 
@@ -272,66 +241,6 @@ namespace Vzor
             return _typeMaterials.TryGetValue(type, out var material) ? material : _material;
         }
 
-        // temporary diagnostic. tells us whether a white body is a colour problem or a faction
-        // resolution problem, without needing a second raid to find out.
-        private void LogTypeOnce(Player player)
-        {
-            // one line per faction. a cap on total lines just meant twenty scavs and never the
-            // boss we were actually trying to diagnose.
-            var typeNow = GetChamsType(player);
-            if (_loggedTypes.Contains(typeNow)) return;
-            _loggedTypes.Add(typeNow);
-
-            try
-            {
-                var role = "?";
-                var side = "?";
-
-                var profile = player.Profile;
-                var info = profile != null ? profile.Info : null;
-                if (info != null)
-                {
-                    side = info.Side.ToString();
-
-                    var settings = info.Settings;
-                    if (settings != null) role = settings.Role.ToString();
-                }
-
-                var colour = "?";
-                if (_typeMaterials.TryGetValue(typeNow, out var material) && material != null)
-                    colour = Hex(material.GetColor("_Color_Visible"));
-
-                Plugin.Logger.LogInfo("chams: " + typeNow + " side=" + side + " role=" + role +
-                    " colour=" + colour + " nick=" + PlayerName(player));
-            }
-            catch
-            {
-                // logging must never be the reason a raid dies
-            }
-        }
-
-        private static string Hex(Color c)
-        {
-            return "#" + Mathf.RoundToInt(c.r * 255f).ToString("X2") +
-                   Mathf.RoundToInt(c.g * 255f).ToString("X2") +
-                   Mathf.RoundToInt(c.b * 255f).ToString("X2");
-        }
-
-        private static string PlayerName(Player player)
-        {
-            try
-            {
-                var profile = player.Profile;
-                var info = profile != null ? profile.Info : null;
-                if (info == null) return "?";
-                var nick = info.Nickname;
-                return string.IsNullOrEmpty(nick) ? "?" : nick;
-            }
-            catch
-            {
-                return "?";
-            }
-        }
 
         private static ChamsType GetChamsType(Player player)
         {
@@ -416,7 +325,6 @@ namespace Vzor
                     var skins = body.BodySkins;
                     if (skins == null) continue;
 
-                    LogTypeOnce(player);
                     var material = MaterialFor(player);
 
                     var enumerator = skins.GetEnumerator();

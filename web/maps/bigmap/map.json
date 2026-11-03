@@ -468,5 +468,175 @@
                                           }
                                       ]
                    }
+               ],
+    "labels":  [
+                   {
+                       "text":  "Big Red",
+                       "x":  -215,
+                       "y":  -119,
+                       "z":  0,
+                       "size":  16
+                   },
+                   {
+                       "text":  "Dorms",
+                       "x":  200,
+                       "y":  150,
+                       "z":  0,
+                       "size":  16
+                   },
+                   {
+                       "text":  "New Gas",
+                       "x":  404,
+                       "y":  31,
+                       "z":  0,
+                       "size":  16
+                   },
+                   {
+                       "text":  "Old Gas",
+                       "x":  331,
+                       "y":  -173,
+                       "z":  0,
+                       "size":  16
+                   },
+                   {
+                       "text":  "Fortress",
+                       "x":  201,
+                       "y":  -127,
+                       "z":  0,
+                       "size":  16
+                   },
+                   {
+                       "text":  "Crackhouse",
+                       "x":  83,
+                       "y":  -153,
+                       "z":  0,
+                       "size":  16
+                   },
+                   {
+                       "text":  "Streamer House",
+                       "x":  567,
+                       "y":  -67,
+                       "z":  0,
+                       "size":  null
+                   },
+                   {
+                       "text":  "Main Bridge",
+                       "x":  -69,
+                       "y":  7,
+                       "z":  0,
+                       "size":  16
+                   },
+                   {
+                       "text":  "Sniper Hill",
+                       "x":  110,
+                       "y":  85,
+                       "z":  0,
+                       "size":  null
+                   },
+                   {
+                       "text":  "Storage",
+                       "x":  -288,
+                       "y":  -134,
+                       "z":  0,
+                       "size":  16
+                   },
+                   {
+                       "text":  "Trailer Park",
+                       "x":  -211,
+                       "y":  -219,
+                       "z":  0,
+                       "size":  16
+                   },
+                   {
+                       "text":  "Junk Bridge",
+                       "x":  -66,
+                       "y":  46,
+                       "z":  0,
+                       "size":  16
+                   },
+                   {
+                       "text":  "Repair Shop",
+                       "x":  106,
+                       "y":  -90,
+                       "z":  0,
+                       "size":  null
+                   },
+                   {
+                       "text":  "Sniper Ridge",
+                       "x":  491,
+                       "y":  63,
+                       "z":  0,
+                       "size":  null
+                   },
+                   {
+                       "text":  "Old Construction",
+                       "x":  75,
+                       "y":  -9,
+                       "z":  0,
+                       "size":  16
+                   },
+                   {
+                       "text":  "Skeleton",
+                       "x":  200,
+                       "y":  -13,
+                       "z":  0,
+                       "size":  16
+                   },
+                   {
+                       "text":  "Warehouse 3",
+                       "x":  390,
+                       "y":  -94,
+                       "z":  0,
+                       "size":  16
+                   },
+                   {
+                       "text":  "Depot",
+                       "x":  472,
+                       "y":  -67,
+                       "z":  0,
+                       "size":  16
+                   },
+                   {
+                       "text":  "Warehouse 7",
+                       "x":  555,
+                       "y":  -118,
+                       "z":  0,
+                       "size":  16
+                   },
+                   {
+                       "text":  "Military Checkpoint",
+                       "x":  572,
+                       "y":  0,
+                       "z":  0,
+                       "size":  16
+                   },
+                   {
+                       "text":  "Bus Station",
+                       "x":  238,
+                       "y":  53,
+                       "z":  0,
+                       "size":  16
+                   },
+                   {
+                       "text":  "Warehouse 4",
+                       "x":  333,
+                       "y":  -67,
+                       "z":  1,
+                       "size":  16
+                   },
+                   {
+                       "text":  "Powerline Tower",
+                       "x":  497,
+                       "y":  110,
+                       "z":  0,
+                       "size":  16
+                   },
+                   {
+                       "text":  "Warehouse 17",
+                       "x":  46,
+                       "y":  -59,
+                       "z":  0,
+                       "size":  16
+                   }
                ]
 }

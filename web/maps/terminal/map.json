@@ -106,5 +106,140 @@
                                           }
                                       ]
                    }
+               ],
+    "labels":  [
+                   {
+                       "text":  "Old Station",
+                       "x":  128.904,
+                       "y":  -430.736,
+                       "z":  -60.4,
+                       "size":  12
+                   },
+                   {
+                       "text":  "Substation",
+                       "x":  114,
+                       "y":  -399,
+                       "z":  -60.4,
+                       "size":  12
+                   },
+                   {
+                       "text":  "Bulk Cargo A",
+                       "x":  5,
+                       "y":  -438,
+                       "z":  -60.4,
+                       "size":  15
+                   },
+                   {
+                       "text":  "Bulk Cargo B",
+                       "x":  -26,
+                       "y":  235,
+                       "z":  -60.4,
+                       "size":  15
+                   },
+                   {
+                       "text":  "Marine Station",
+                       "x":  274.592,
+                       "y":  -243.1,
+                       "z":  -60.4,
+                       "size":  12
+                   },
+                   {
+                       "text":  "Administration",
+                       "x":  94.789,
+                       "y":  -137.66,
+                       "z":  -60.4,
+                       "size":  12
+                   },
+                   {
+                       "text":  "Old Administration",
+                       "x":  197.844,
+                       "y":  -227.512,
+                       "z":  -60.4,
+                       "size":  10
+                   },
+                   {
+                       "text":  "Oil Administration",
+                       "x":  146,
+                       "y":  16,
+                       "z":  -60.4,
+                       "size":  9
+                   },
+                   {
+                       "text":  "Fire Station",
+                       "x":  179,
+                       "y":  40,
+                       "z":  -60.4,
+                       "size":  9
+                   },
+                   {
+                       "text":  "Pumping Station",
+                       "x":  155,
+                       "y":  254,
+                       "z":  -60.4,
+                       "size":  12
+                   },
+                   {
+                       "text":  "Oil Storage",
+                       "x":  159,
+                       "y":  177,
+                       "z":  -60.4,
+                       "size":  14
+                   },
+                   {
+                       "text":  "Container Port A",
+                       "x":  225,
+                       "y":  125,
+                       "z":  -60.4,
+                       "size":  13
+                   },
+                   {
+                       "text":  "Container Port B",
+                       "x":  -106,
+                       "y":  30,
+                       "z":  -60.4,
+                       "size":  15
+                   },
+                   {
+                       "text":  "Extraction Yard",
+                       "x":  -285,
+                       "y":  267,
+                       "z":  -61.0,
+                       "size":  14
+                   },
+                   {
+                       "text":  "Freight Wagons",
+                       "x":  60.7,
+                       "y":  81,
+                       "z":  -58.7,
+                       "size":  10
+                   },
+                   {
+                       "text":  "Old Station Spawn",
+                       "x":  127.005,
+                       "y":  -418.934,
+                       "z":  -60.069,
+                       "size":  10
+                   },
+                   {
+                       "text":  "Zubr Exit",
+                       "x":  -298.9,
+                       "y":  72.43,
+                       "z":  -59.24,
+                       "size":  12
+                   },
+                   {
+                       "text":  "Marine Station 2F",
+                       "x":  275,
+                       "y":  -242,
+                       "z":  -56.27,
+                       "size":  12
+                   },
+                   {
+                       "text":  "Pumping Basement",
+                       "x":  155,
+                       "y":  261,
+                       "z":  -62.46,
+                       "size":  12
+                   }
                ]
 }

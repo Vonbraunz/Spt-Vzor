@@ -106,5 +106,21 @@
                                           }
                                       ]
                    }
+               ],
+    "labels":  [
+                   {
+                       "text":  "Secret Lab",
+                       "x":  -100.0,
+                       "y":  -433.0,
+                       "z":  0.5,
+                       "size":  12
+                   },
+                   {
+                       "text":  "Office Above Boiler Room",
+                       "x":  -263.6,
+                       "y":  -363.4,
+                       "z":  4.0,
+                       "size":  12
+                   }
                ]
 }

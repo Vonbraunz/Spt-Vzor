@@ -30,6 +30,7 @@
       <button id="clearsamples">clear</button>
     </div>
     <div class="dim small" id="samples">0 points</div>
+    <div class="row buttons"><button id="follow">follow: on</button></div>
 
     <label>art rotation <span id="vrot">0</span>&deg;</label>
     <input type="range" id="rot" min="-180" max="180" step="0.1" value="0">
@@ -52,6 +53,8 @@
     <div class="row">
       <label class="check"><input type="checkbox" id="fx"> flip x</label>
       <label class="check"><input type="checkbox" id="fy"> flip y</label>
+      <label class="check"><input type="checkbox" id="names" checked> names</label>
+      <label class="check"><input type="checkbox" id="lflip"> labels 180</label>
     </div>
 
     <div class="row">
@@ -64,7 +67,7 @@
     <div class="dim small">
       only the art moves, the dots are truth.<br>
       shift+drag moves the art, shift+wheel scales it.<br>
-      arrows nudge 5px (shift 25), [ ] rotate, +/- scale, s save, f fit
+      arrows nudge 5px (shift 25), [ ] rotate, +/- scale, c follow, s save, f fit
     </div>
   </div>
 
@@ -74,6 +77,8 @@
     <span><i style="background:#d6d6d6"></i>scav</span>
     <span><i style="background:#ffd23b"></i>raider</span>
     <span><i style="background:#ff3b3b"></i>boss</span>
+    <span>&#9671; exfil</span>
+    <span>&#10005; body</span>
   </div>
 </div>
 
