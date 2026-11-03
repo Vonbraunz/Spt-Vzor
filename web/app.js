@@ -388,9 +388,23 @@ function draw() {
       ctx.textAlign = "left";
       ctx.lineWidth = 3;
       ctx.strokeStyle = "#0b0e12cc";
+
       const text = contactLabel(p) + "  " + Math.round(p.dist || 0) + "m";
-      ctx.strokeText(text, s.x + 7, s.y + 4);
-      ctx.fillText(text, s.x + 7, s.y + 4);
+      const tx = s.x + 7;
+      const ty = s.y + 4;
+
+      ctx.strokeText(text, tx, ty);
+      ctx.fillText(text, tx, ty);
+
+      // chevron after the distance, drawn as a path so it does not depend on the font having a
+      // suitable glyph
+      let dyUp = 0;
+      if (typeof p.y === "number" && typeof state.y === "number") {
+        const dy = p.y - state.y;
+        if (Math.abs(dy) > 1.2) dyUp = dy > 0 ? 1 : -1;
+      }
+
+      if (dyUp !== 0) drawChevron(tx + ctx.measureText(text).width + 7, ty - 4, dyUp > 0);
     }
   }
 
@@ -434,6 +448,24 @@ function drawImageLayer(img, layer, alpha, dim) {
   }
 
   ctx.restore();
+}
+
+function drawChevron(x, y, up) {
+  ctx.beginPath();
+
+  if (up) {
+    ctx.moveTo(x - 4, y + 3);
+    ctx.lineTo(x, y - 2);
+    ctx.lineTo(x + 4, y + 3);
+  } else {
+    ctx.moveTo(x - 4, y - 2);
+    ctx.lineTo(x, y + 3);
+    ctx.lineTo(x + 4, y - 2);
+  }
+
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = "#dfe6ee";
+  ctx.stroke();
 }
 
 function drawSelf() {
