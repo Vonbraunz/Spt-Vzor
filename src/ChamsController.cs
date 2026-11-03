@@ -18,6 +18,7 @@ namespace Vzor
             public Renderer Renderer;
             public Il2CppReferenceArray<Material> Original;
             public int BodyId;
+            public string Signature;
         }
 
         // renderer instance id -> what we replaced, so we can undo it later
@@ -28,6 +29,22 @@ namespace Vzor
         private Material _material;
         private string _materialSignature;
         private readonly Dictionary<ChamsType, Material> _typeMaterials = new Dictionary<ChamsType, Material>();
+        private readonly Dictionary<string, Material> _tintMaterials = new Dictionary<string, Material>();
+        private bool _loggedTintFailure;
+        private bool _loggedTintActive;
+        private bool _loggedTintShader;
+        private bool _loggedOutline;
+        private bool _loggedOutlineFailure;
+
+        // outline mode: a second skinned copy of the mesh, carrying the chams colour, inflated a
+        // little so it reads as a rim around a body whose own materials we never touched
+        private struct Shell
+        {
+            public GameObject Object;
+            public int BodyId;
+        }
+
+        private readonly Dictionary<int, Shell> _shells = new Dictionary<int, Shell>();
 
         private enum ChamsType
         {
@@ -173,7 +190,8 @@ namespace Vzor
                             "|" + Plugin.ChamsPerType.Value + "|" + Plugin.ChamsUsecColor.Value + "|" +
                             Plugin.ChamsBearColor.Value + "|" + Plugin.ChamsScavColor.Value + "|" +
                             Plugin.ChamsBossColor.Value + "|" + Plugin.ChamsSpecialColor.Value + "|" +
-                            Plugin.ChamsOccludedAlpha.Value + "|" + Plugin.ChamsVisibleAlpha.Value;
+                            Plugin.ChamsOccludedAlpha.Value + "|" + Plugin.ChamsVisibleAlpha.Value + "|" +
+                            Plugin.ChamsKeepTexture.Value;
 
             if (!force && _material != null && signature == _materialSignature) return;
 
@@ -181,6 +199,12 @@ namespace Vzor
             RestoreAll();
 
             if (_material != null) Destroy(_material);
+
+            foreach (var textured in _tintMaterials.Values)
+                if (textured != null)
+                    Destroy(textured);
+
+            _tintMaterials.Clear();
 
             foreach (var existing in _typeMaterials.Values)
                 if (existing != null)
@@ -223,7 +247,14 @@ namespace Vzor
 
         private static void SetColor(Material material, string name, Color color)
         {
-            if (material.HasProperty(name)) material.SetColor(name, color);
+            try
+            {
+                material.SetColor(name, color);
+            }
+            catch
+            {
+                // material has no such property, which is fine
+            }
         }
 
         private Material BuildTypeMaterial(string hex, Color fallback)
@@ -233,14 +264,91 @@ namespace Vzor
             return BuildMaterial(visible, occluded);
         }
 
-        private Material MaterialFor(Player player)
+        // tint mode: copy the game's own material and tint it, so textures, cutout and blend mode
+        // all survive. swapping in the chams shader made bodies with alpha textures go see
+        // through, which is exactly what a body should not do.
+        private Material TintedClone(Material original, ChamsType type)
         {
-            if (!Plugin.ChamsPerType.Value) return _material;
+            if (original == null) return null;
 
-            var type = GetChamsType(player);
-            return _typeMaterials.TryGetValue(type, out var material) ? material : _material;
+            var key = type + "|c" + original.GetInstanceID();
+            if (_tintMaterials.TryGetValue(key, out var cached) && cached != null) return cached;
+
+            Material clone;
+            try
+            {
+                clone = new Material(original);
+            }
+            catch
+            {
+                return null;
+            }
+
+            clone.name = "Vzor tint " + type;
+
+            var tint = TintFor(type);
+            var applied = 0;
+            var names = string.Empty;
+
+            // do not guess property names. walk the shader, tint every colour it exposes, and
+            // log what we found once. guessing _Color four ways is how you get a silent no-op.
+            try
+            {
+                var shader = clone.shader;
+                var count = shader != null ? shader.GetPropertyCount() : 0;
+
+                for (var i = 0; i < count; i++)
+                {
+                    try
+                    {
+                        var property = shader.GetPropertyName(i);
+                        if (string.IsNullOrEmpty(property)) continue;
+
+                        var lower = property.ToLowerInvariant();
+                        if (!lower.Contains("color") && !lower.Contains("tint")) continue;
+                        if (shader.GetPropertyType(i) != UnityEngine.Rendering.ShaderPropertyType.Color) continue;
+
+                        clone.SetColor(property, tint);
+                        applied++;
+
+                        if (names.Length < 240) names += property + " ";
+                    }
+                    catch
+                    {
+                        // one odd property is not a reason to give up on the material
+                    }
+                }
+            }
+            catch
+            {
+                // shader not readable
+            }
+
+            if (!_loggedTintShader)
+            {
+                _loggedTintShader = true;
+                Plugin.Logger.LogInfo("chams: tint swept " + applied + " colour properties: " + names);
+            }
+
+            // nothing to tint means this shader would render exactly as it does now, so let the
+            // caller fall back to the flat chams material instead of pretending it worked
+            if (applied == 0) return null;
+
+            _tintMaterials[key] = clone;
+            return clone;
         }
 
+        private Color TintFor(ChamsType type)
+        {
+            var faction = _typeMaterials.TryGetValue(type, out var material) && material != null
+                ? material.GetColor("_Color_Visible")
+                : Color.white;
+
+            // full faction colour. half way to white was invisible on dark body shaders, and a
+            // tint you cannot see is the same as no tint.
+            faction.a = 1f;
+            return faction;
+        }
 
         private static ChamsType GetChamsType(Player player)
         {
@@ -325,10 +433,9 @@ namespace Vzor
                     var skins = body.BodySkins;
                     if (skins == null) continue;
 
-                    var material = MaterialFor(player);
-
+                    var type = GetChamsType(player);
                     var enumerator = skins.GetEnumerator();
-                    while (enumerator.MoveNext()) PaintSkin(enumerator.Current.Value, bodyId, material);
+                    while (enumerator.MoveNext()) PaintSkin(enumerator.Current.Value, bodyId, type);
                 }
                 catch (Exception ex)
                 {
@@ -338,7 +445,7 @@ namespace Vzor
             }
         }
 
-        private void PaintSkin(EFT.Visual.LoddedSkin loddedSkin, int bodyId, Material material)
+        private void PaintSkin(EFT.Visual.LoddedSkin loddedSkin, int bodyId, ChamsType type)
         {
             if (loddedSkin == null) return;
 
@@ -353,33 +460,80 @@ namespace Vzor
                 var renderer = skin.SkinnedMeshRenderer;
                 if (renderer == null) continue;
 
-                PaintRenderer(renderer, bodyId, material);
+                PaintRenderer(renderer, bodyId, type);
             }
         }
 
-        private void PaintRenderer(Renderer renderer, int bodyId, Material material)
+        private void PaintRenderer(Renderer renderer, int bodyId, ChamsType type)
         {
             if (renderer == null) return;
 
             var id = renderer.GetInstanceID();
-
-            // already ours? cheaper to check than to rebuild the array
-            if (_applied.TryGetValue(id, out var existing))
-            {
-                var current = renderer.sharedMaterial;
-                if (current != null && material != null && current.GetInstanceID() == material.GetInstanceID()) return;
-                _applied.Remove(id);
-            }
 
             var original = renderer.sharedMaterials;
             if (original == null || original.Length == 0) return;
 
             if (!Plugin.GearChams.Value && LooksLikeGear(original)) return;
 
-            var replacement = new Il2CppReferenceArray<Material>(original.Length);
-            for (var i = 0; i < original.Length; i++) replacement[i] = material;
+            // outline mode: body materials stay exactly as the game made them, and a second
+            // skinned copy carries the colour instead
+            if (Plugin.ChamsOutline.Value)
+            {
+                CreateShell(renderer, bodyId, type);
+                return;
+            }
 
-            _applied[id] = new Applied { Renderer = renderer, Original = original, BodyId = bodyId };
+            // in tint mode the replacement is a per submesh copy of the game's own material, so
+            // the signature has to cover which materials we cloned, not just one shared one
+            var signature = type + "|" + Plugin.ChamsKeepTexture.Value;
+
+            if (_applied.TryGetValue(id, out var existing) && existing.Signature == signature)
+                return;
+
+            var replacement = new Il2CppReferenceArray<Material>(original.Length);
+
+            if (Plugin.ChamsPerType.Value && Plugin.ChamsKeepTexture.Value)
+            {
+                if (!_loggedTintActive)
+                {
+                    _loggedTintActive = true;
+                    Plugin.Logger.LogInfo("chams: tint mode active");
+                }
+
+                var flat = Plugin.ChamsPerType.Value && _typeMaterials.TryGetValue(type, out var typed)
+                    ? typed
+                    : _material;
+
+                for (var i = 0; i < original.Length; i++)
+                {
+                    var clone = TintedClone(original[i], type);
+                    replacement[i] = clone != null ? clone : flat;
+
+                    if (clone == null && !_loggedTintFailure)
+                    {
+                        _loggedTintFailure = true;
+                        Plugin.Logger.LogWarning("chams: a body material could not be cloned, falling back to the flat shader");
+                    }
+                }
+            }
+            else
+            {
+                var flat = Plugin.ChamsPerType.Value && _typeMaterials.TryGetValue(type, out var typed)
+                    ? typed
+                    : _material;
+
+                if (flat == null) return;
+                for (var i = 0; i < original.Length; i++) replacement[i] = flat;
+            }
+
+            _applied[id] = new Applied
+            {
+                Renderer = renderer,
+                Original = original,
+                BodyId = bodyId,
+                Signature = signature
+            };
+
             renderer.sharedMaterials = replacement;
         }
 
@@ -403,8 +557,112 @@ namespace Vzor
 
         // occlusion goes on and off, so a body that just disappeared behind a wall has to be
         // put back exactly as it was. we track which body owns which renderer for that.
+        private void CreateShell(Renderer renderer, int bodyId, ChamsType type)
+        {
+            var id = renderer.GetInstanceID();
+
+            if (_shells.TryGetValue(id, out var existing) && existing.Object != null) return;
+
+            var source = renderer.TryCast<SkinnedMeshRenderer>();
+            if (source == null || source.sharedMesh == null) return;
+            if (!source.enabled) return;
+
+            var material = Plugin.ChamsPerType.Value && _typeMaterials.TryGetValue(type, out var typed)
+                ? typed
+                : _material;
+
+            if (material == null) return;
+
+            GameObject host = null;
+
+            try
+            {
+                // clone the game's own renderer object. assembling one by hand loses the exact
+                // bone binding, which is how you get a body with no legs and feet in the walls.
+                var cloned = UnityEngine.Object.Instantiate(renderer.gameObject, renderer.transform.parent);
+                host = cloned != null ? cloned.TryCast<GameObject>() : null;
+                if (host == null) return;
+
+                // anything the source carried as children is not ours to duplicate
+                if (host.transform.childCount > 0)
+                {
+                    Destroy(host);
+                    return;
+                }
+
+                host.name = "Vzor shell";
+                host.layer = renderer.gameObject.layer;
+                host.transform.localPosition = renderer.transform.localPosition;
+                host.transform.localRotation = renderer.transform.localRotation;
+                host.transform.localScale = renderer.transform.localScale * Plugin.ChamsOutlineScale.Value;
+
+                var shell = host.GetComponent<SkinnedMeshRenderer>();
+                if (shell == null)
+                {
+                    Destroy(host);
+                    return;
+                }
+
+                shell.bones = source.bones;
+                shell.rootBone = source.rootBone;
+
+                var materials = new Il2CppReferenceArray<Material>(1);
+                materials[0] = material;
+                shell.sharedMaterials = materials;
+
+                shell.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                shell.receiveShadows = false;
+                shell.updateWhenOffscreen = true;
+
+                _shells[id] = new Shell { Object = host, BodyId = bodyId };
+
+                if (!_loggedOutline)
+                {
+                    _loggedOutline = true;
+                    Plugin.Logger.LogInfo("chams: outline shell created, scale " + Plugin.ChamsOutlineScale.Value);
+                }
+            }
+            catch (Exception ex)
+            {
+                if (host != null) Destroy(host);
+
+                if (!_loggedOutlineFailure)
+                {
+                    _loggedOutlineFailure = true;
+                    Plugin.Logger.LogWarning("chams: shell failed: " + ex.Message);
+                }
+            }
+        }
+
         private void RestoreBody(int bodyId)
         {
+            // shells first, they are the cheap part and they have to go with the body
+            List<int> shells = null;
+
+            foreach (var entry in _shells)
+            {
+                if (entry.Value.BodyId != bodyId) continue;
+                (shells ?? (shells = new List<int>())).Add(entry.Key);
+            }
+
+            if (shells != null)
+            {
+                for (var i = 0; i < shells.Count; i++)
+                {
+                    var shell = _shells[shells[i]];
+                    try
+                    {
+                        if (shell.Object != null) Destroy(shell.Object);
+                    }
+                    catch
+                    {
+                        // already gone with the body
+                    }
+
+                    _shells.Remove(shells[i]);
+                }
+            }
+
             List<int> found = null;
 
             foreach (var entry in _applied)
@@ -434,6 +692,20 @@ namespace Vzor
 
         private void RestoreAll()
         {
+            foreach (var shell in _shells.Values)
+            {
+                try
+                {
+                    if (shell.Object != null) Destroy(shell.Object);
+                }
+                catch
+                {
+                    // already gone with the raid
+                }
+            }
+
+            _shells.Clear();
+
             foreach (var entry in _applied)
             {
                 try

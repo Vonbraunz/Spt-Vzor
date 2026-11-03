@@ -50,6 +50,9 @@ namespace Vzor
         internal static ConfigEntry<string> ChamsSpecialColor;
         internal static ConfigEntry<float> ChamsOccludedAlpha;
         internal static ConfigEntry<float> ChamsVisibleAlpha;
+        internal static ConfigEntry<bool> ChamsKeepTexture;
+        internal static ConfigEntry<bool> ChamsOutline;
+        internal static ConfigEntry<float> ChamsOutlineScale;
 
         internal static ConfigEntry<bool> EspEnabled;
         internal static ConfigEntry<float> EspLabelDistance;
@@ -228,6 +231,16 @@ namespace Vzor
             ChamsVisibleAlpha = Config.Bind("Chams", "Visible Alpha", 1f,
                 new ConfigDescription("opacity of the in-sight chams pass for every colour. lower means you can see the gear underneath.",
                     new AcceptableValueRange<float>(0f, 1f)));
+
+            ChamsKeepTexture = Config.Bind("Chams", "Keep Texture", true,
+                "tint the body's own texture instead of replacing it with a flat colour. you can still tell factions apart and the body still looks like a body. off gives the solid silhouette.");
+
+            ChamsOutline = Config.Bind("Chams", "Outline Body", true,
+                "leave the body's own materials alone and draw a coloured shell around it instead. the body renders exactly as the game made it, with a faction rim. this is the mode that survives shaders which ignore colour tints.");
+
+            ChamsOutlineScale = Config.Bind("Chams", "Outline Scale", 1.04f,
+                new ConfigDescription("how much bigger the shell is than the body. too small and it z-fights, too large and it looks like a balloon.",
+                    new AcceptableValueRange<float>(1f, 1.25f)));
 
             EspEnabled = Config.Bind("Loot ESP", "Enabled", true,
                 "draw dots and labels on loot.");
