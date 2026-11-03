@@ -1,6 +1,6 @@
 # Vzor
 
-A BepInEx 6 plugin for the **IL2CPP** build of SPT 5.0 (EFT 1.2.0.47965, Unity 2022.3.43f2). It paints players by faction, marks loot, quest zones, extracts and grenades, and includes a handful of quality-of-life patches.
+A BepInEx 6 plugin for the **IL2CPP** build of SPT 5.0 (EFT 1.2.0.47965, Unity 2022.3.43f2). It paints players by faction, marks loot, quest items, quest zones, extracts, transits and bodies, and serves a live map of the raid to your browser. Plus a handful of quality-of-life patches.
 
 Offline single-player only. There is no anti-cheat bypass, no injector, and nothing here is designed for live EFT.
 
@@ -10,9 +10,9 @@ Config-driven. Two keys exist: `Insert` opens the in-game menu, and `Aim Key` (L
 
 ### Chams
 
-- Material swap on player body skins, restored on toggle and on despawn.
-- Faction colours: USEC, BEAR, scav, boss, cultist/raider (followers included).
-- Per-type materials with separate visible and occluded alpha.
+- **Outline mode by default.** The body keeps its own materials and a second skinned copy of the mesh carries the faction colour, inflated by `Outline Scale` so it reads as a rim. The body renders exactly as the game made it.
+- Faction colours resolved from the spawn role first, so USEC, BEAR, scav, boss and cultist/raider are correct even for AI PMCs, whose profile side is always Savage.
+- `Keep Texture` tints a copy of the game's own materials instead, for anyone who prefers a colour cast over a rim. Off switches to the flat chams shader.
 - Six shaders from `chams.bundle`: solid, wireframe, forcefield, glass, lava, outline.
 - Optional gear painting (helmets, rigs, masks), off by default.
 - Optional occlusion check: a raycast decides whether a body gets painted at all.
@@ -23,10 +23,10 @@ Config-driven. Two keys exist: `Insert` opens the in-game menu, and `Aim Key` (L
 - Category colours and per-category toggles: weapons, ammo, medical, food, keys, gear, barter, mods, quest, wishlist, other.
 - Prices from the DrakiaXYZ flea database, falling back to the item template's `CreditsPrice`.
 - `Min Value` filter and `High Value Only` mode.
-- **Distance rules:** normal loot, containers and corpses are limited to `Loot Distance` (10 m default). High value, quest and wishlist items ignore the limit entirely.
+- **Distance rules:** normal loot, containers and corpses are limited to `Loot Distance` (10 m default). Quest items get `Quest Distance` (300 m default, matching zones). High value and wishlist items are unlimited.
 - Frustum check and optional line-of-sight check.
 - Container contents: item count and total value, read within 10 m, refreshed every 10 s.
-- Quest progress appended to quest item labels, e.g. `[3/5]`, from your active quest counters.
+- Quest progress appended to quest item labels, e.g. `[3/5]`. The task counters this reads are unreliable in this build, so treat the numbers as advisory.
 - Label stacking so overlapping text steps upward instead of piling up.
 - Extracts with open/closed colouring, always labelled.
 - Quest zones: place item, place beacon, stay in zone, visit a place.
@@ -38,14 +38,20 @@ Config-driven. Two keys exist: `Insert` opens the in-game menu, and `Aim Key` (L
 
 ### Web map
 
-A live map of the current raid in your browser, served by the plugin on loopback.
+A live map of the current raid in your browser, served by the plugin on loopback. Off by default, enable with `[Web Map] Enabled`, then open `http://127.0.0.1:6970/`.
 
-- Open `http://127.0.0.1:6970/` while in a raid. Off by default, enable with `[Web Map] Enabled`.
-- Shows your position and heading, plus every alive body colour coded by faction.
-- Map art for every playable location, with the floor picked from your height.
+- Your position and heading, every alive body colour coded by faction, with name and distance, and a chevron when they are above or below you.
+- Bodies that stop existing (killed and removed, or extracted) leave a white X where they were last seen.
+- Extracts as diamonds, filled when open. Transits as squares, labelled with the destination.
+- Map art for every playable location. Floors are picked from your height and stacked over the ground map, with the base dimmed so the floor you are on stands out.
+- Place names from the map config, drawn behind the live data.
+- **Loot table**: every loose item in the raid with name, price and distance, filterable by category and searchable by name, sorted by price, name or distance. Click a row to mark it on the map. Refreshes once, two minutes into the raid.
+- **Quest markers**: quest items on the floor, containers holding them, and quest zones, each behind a toggle.
+- **Quest panel**: active quests for this map only, with the items you are still short of.
+- **Contacts panel**: players, bosses, followers, raiders, rogues and cultists, sorted by distance, click to centre.
 - Point and click calibration: stand somewhere, press `P`, then click the art where you are. Three or more spread out points solve rotation, scale, offset and mirroring, and the residual is shown in pixels. Each map's fit is saved.
-- Sliders, `shift`+drag and `shift`+wheel adjust the art by hand afterwards. Only the art moves, the dots are truth.
-- The page and its assets live in `BepInEx\plugins\Vzor\web`, so they can be edited and reloaded without restarting the game.
+- `follow` keeps the view on you. Dragging releases it.
+- The page and its assets live in `BepInEx\plugins\Vzor\web`, so they can be edited and reloaded without restarting the game: the plugin serves `/version` and the page reloads itself when `app.js` changes.
 
 ### Aimbot
 
@@ -53,10 +59,11 @@ A live map of the current raid in your browser, served by the plugin on loopback
 - Nearest target inside the FOV cone, distance limited, optional line of sight.
 - Targets the head bone when available, neck otherwise.
 - Configurable smoothing in degrees per second.
+- Magic bullet uses the same FOV pick by default, with an optional nearest-by-distance ranking.
 
 ### Magic bullet
 
-- Hooks `Player.FirearmController.InitiateShot` and redirects your shots to the closest on-screen head, travelling downward into the body.
+- Hooks `Player.FirearmController.InitiateShot` and redirects your shots to the chosen head, travelling downward into the body.
 - Ignores where the gun is pointed and ignores walls. Separate toggle from the aimbot.
 
 ### QoL
@@ -73,6 +80,7 @@ A live map of the current raid in your browser, served by the plugin on loopback
 
 - SPT 5.0 with its bundled BepInEx 6 IL2CPP. Nothing extra to install.
 - `Segoe UI` on Windows for Cyrillic nicknames. Falls back to ASCII-only labels if unavailable.
+- **Windows Smart App Control must be off.** It refuses unsigned DLLs that have no reputation, which means every rebuild is blocked with `An Application Control policy has blocked this` and `Vzor.dll` never loads. There is no exception list and turning it off is one-way.
 
 ## Install
 
@@ -84,6 +92,7 @@ BepInEx\plugins\Vzor\
   chams.bundle
   prices-regular.json     (optional, but without it prices come from templates)
   prices-pve.json         (optional alternative table)
+  web\                    (map page, art and calibration)
 ```
 
 Launch SPT normally. The plugin logs `Vzor 0.5.0 loaded. config only, no hotkeys.`
@@ -94,10 +103,10 @@ Everything lives in `BepInEx\config\local.vzor.cfg`. The plugin watches the file
 
 Sections:
 
-- `[Chams]` colours, shader, alpha, gear, occlusion.
-- `[Loot ESP]` distances, categories, colours, filters, exfils, zones, grenades.
+- `[Chams]` colours, shader, outline mode and scale, alpha, gear, occlusion.
+- `[Loot ESP]` distances (including `Quest Distance`), categories, colours, filters, exfils, zones, grenades.
 - `[QoL]` stamina, recoil, sway, malfunction, instant search.
-- `[Aimbot]` enabled, aim key, FOV, distance, smoothing, magic bullet.
+- `[Aimbot]` enabled, aim key, FOV, distance, smoothing, magic bullet and its target ranking.
 - `[Menu]` the in-game menu toggle key.
 - `[Web Map]` enabled, port and refresh rate for the browser map.
 
@@ -112,16 +121,21 @@ cd _src\Vzor
 dotnet build -t:Deploy
 ```
 
-`-t:Deploy` builds and copies `Vzor.dll` plus `chams.bundle` into `BepInEx\plugins\Vzor`. Change `GameDir` in `Vzor.csproj` if the install moves.
+`-t:Deploy` builds and copies `Vzor.dll`, `chams.bundle`, the price files and the whole `web` folder into `BepInEx\plugins\Vzor`. Change `GameDir` in `Vzor.csproj` if the install moves.
 
 Plain `dotnet build` compiles to `dist` without deploying.
+
+The project references `Diz.Binding` from `BepInEx\interop`, because quest conditions live in a collection derived from `UpdatableBindableList`. If you build on another machine, that assembly has to exist there.
 
 ## Known issues
 
 - **No recoil after spawn.** The first weapon of a raid may keep its recoil until you swap weapons. Two recoil pipelines exist and the fix for the other one made things worse, so it is parked. Swap once and it behaves.
+- **Quest counters are unreliable.** The `[3/5]` labels and the shortfall logic read different sources; the labels read the game's counters, which do not update properly in this build. The web map's quest panel counts your actual inventory instead, which does work.
 - **Instant search is confirmed working on SPT 5.0.** The upstream mod also patches `ContainsUnknownItems`, but that method shares its native body with hundreds of others and detouring it crashes the game at boot. It turns out the three safe patches are sufficient, so that one is deliberately omitted.
 - **Prices are a snapshot.** The flea table comes from a community project and will drift. Missing entries fall back to the item template price, which is lower.
 - **Container contents counts** rely on `ItemExtensions.GetAllItems`. Nested grids are usually included, but treat the totals as approximate until you have compared a few against what you actually find.
+- **Body X marks include extractions.** A player who extracts also looks like "stopped existing", so you may get a mark at an exfil.
+- **Floor selection depends on their data.** Floors are chosen from the map's own bounding boxes and stick when you are between them, so a corridor can keep the last floor rather than switching.
 - **Fonts.** Cyrillic renders through Segoe UI. CJK nicknames may come out as blanks.
 
 ## Licences
@@ -130,6 +144,7 @@ Two licences, because this repo contains two different kinds of thing:
 
 - **Code:** MIT. See `LICENSE`.
 - **`chams.bundle`:** CC BY-NC-SA 4.0. Non-commercial, share alike, attribution required. See `LICENSE-ASSETS`.
+- **Map art** under `web\maps` comes from the DynamicMaps data set (TarkovDev, TarkovData, Shebuka art and the zzap rework edits), CC BY-NC-SA 4.0. Personal use only here.
 - **Flea price data** (`prices-regular.json`, `prices-pve.json`): from **[SPT-LiveFleaPriceDB](https://github.com/DrakiaXYZ/SPT-LiveFleaPriceDB)** by DrakiaXYZ, MIT.
 - **Instant search patches:** ported from **[asler/spt-loot-instant-search](https://github.com/asler/spt-loot-instant-search)**, MIT.
 

@@ -14,6 +14,18 @@ credit the original author, no commercial use, and share alike. The plugin code
 around it is MIT, but the bundle is not, so do not pretend otherwise if you
 redistribute it.
 
+## Map art and map data
+
+The SVGs and map configs under `web\maps` were converted from the DynamicMaps map set, which in turn credits:
+
+- **[SPT-DynamicMaps](https://github.com/mpstark/SPT-DynamicMaps)** by Michael P. Starkweather (mpstark), with the 1.2.x line maintained by acidphantasm. Its plugin code is MIT and was used here as a reference for the coordinate conventions, not copied.
+- **Tarkov.dev** map data, MIT, copyright Oskar Risberg and contributors.
+- **TarkovData** (TarkovTracker) map data, MIT.
+- **Shebuka** map artwork, CC BY-NC-SA 4.0.
+- **zzap**, who drew the rework, Terminal and Icebreaker art, CC BY-NC-SA 4.0. The Icebreaker floors came out of that project's release archive rather than its repository.
+
+All of that artwork is CC BY-NC-SA 4.0: attribution, non-commercial, share alike. The plugin code that draws it is MIT.
+
 ## Flea price data
 
 `prices-regular.json` and `prices-pve.json` are data files from
