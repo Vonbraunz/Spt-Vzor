@@ -95,6 +95,7 @@ namespace Vzor
         internal static ConfigEntry<bool> EspQuestNeededOnly;
         internal static ConfigEntry<bool> EspShowZones;
         internal static ConfigEntry<float> EspZoneDistance;
+        internal static ConfigEntry<float> EspQuestDistance;
         internal static ConfigEntry<string> EspZoneColor;
         internal static ConfigEntry<bool> EspShowGrenades;
         internal static ConfigEntry<float> EspGrenadeDistance;
@@ -310,6 +311,9 @@ namespace Vzor
                 "mark place-item and plant-beacon zones the game knows about for your active quests.");
             EspZoneDistance = Config.Bind("Loot ESP", "Zone Distance", 300f,
                 new ConfigDescription("quest zones are shown up to this range, independent of the view cap.",
+                    new AcceptableValueRange<float>(10f, 2000f)));
+            EspQuestDistance = Config.Bind("Loot ESP", "Quest Distance", 300f,
+                new ConfigDescription("quest items are shown up to this range, instead of ignoring the distance limit entirely.",
                     new AcceptableValueRange<float>(10f, 2000f)));
             EspZoneColor = Config.Bind("Loot ESP", "Zone Color", "#B388FF", "rgba hex for quest zones.");
             EspShowGrenades = Config.Bind("Loot ESP", "Show Grenades", true, "mark live thrown grenades. yes, including the ones landing at your feet.");

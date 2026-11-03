@@ -410,10 +410,25 @@ namespace Vzor
                         continue;
                     }
 
-                    // high value, quest and wishlist ignore the distance limit entirely
-                    var limit = value > 0 && value >= Plugin.EspHighValueThreshold.Value;
-                    var unlimited = limit || category == Category.Quest || category == Category.Wishlist;
-                    if (!IsCandidate(pivot, pivotDistance, lootDistance, unlimited, planes, viewOnly)) continue;
+                    // quest items get their own range instead of ignoring the limit. everything
+                    // else keeps the old behaviour: high value and wishlist are unlimited.
+                    var limit = lootDistance;
+                    var unlimited = false;
+
+                    if (category == Category.Quest)
+                    {
+                        limit = Plugin.EspQuestDistance.Value;
+                    }
+                    else if (value > 0 && value >= Plugin.EspHighValueThreshold.Value)
+                    {
+                        unlimited = true;
+                    }
+                    else if (category == Category.Wishlist)
+                    {
+                        unlimited = true;
+                    }
+
+                    if (!IsCandidate(pivot, pivotDistance, limit, unlimited, planes, viewOnly)) continue;
 
                     var itemCenter = VisualCenter(entry);
                     if (!IsSane(itemCenter)) continue;
