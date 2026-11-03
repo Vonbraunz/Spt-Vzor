@@ -1,0 +1,153 @@
+﻿{
+    "id":  "shoreline",
+    "display":  "Shoreline (TarkovData)",
+    "rotation":  180,
+    "bounds":  {
+                   "Min":  {
+                               "x":  -1060,
+                               "y":  -415
+                           },
+                   "Max":  {
+                               "x":  508,
+                               "y":  622
+                           }
+               },
+    "layers":  [
+                   {
+                       "name":  "Underground",
+                       "level":  -1,
+                       "image":  "Layers_Shoreline-Underground_Level.svg",
+                       "width":  1559.57,
+                       "height":  1032.49,
+                       "imageBounds":  {
+                                           "Min":  {
+                                                       "x":  -1060,
+                                                       "y":  -415
+                                                   },
+                                           "Max":  {
+                                                       "x":  508,
+                                                       "y":  622
+                                                   }
+                                       },
+                       "gameBounds":  [
+                                          {
+                                              "Min":  {
+                                                          "x":  -237,
+                                                          "y":  -104,
+                                                          "z":  -100
+                                                      },
+                                              "Max":  {
+                                                          "x":  -137,
+                                                          "y":  -68,
+                                                          "z":  -5
+                                                      }
+                                          },
+                                          {
+                                              "Min":  {
+                                                          "x":  -268,
+                                                          "y":  -163,
+                                                          "z":  -100
+                                                      },
+                                              "Max":  {
+                                                          "x":  -234,
+                                                          "y":  -134,
+                                                          "z":  -5
+                                                      }
+                                          }
+                                      ]
+                   },
+                   {
+                       "name":  "Ground Floor",
+                       "level":  0,
+                       "image":  "Layers_Shoreline-Ground_Level.svg",
+                       "width":  1559.57,
+                       "height":  1032.49,
+                       "imageBounds":  {
+                                           "Min":  {
+                                                       "x":  -1060,
+                                                       "y":  -415
+                                                   },
+                                           "Max":  {
+                                                       "x":  508,
+                                                       "y":  622
+                                                   }
+                                       },
+                       "gameBounds":  [
+                                          {
+                                              "Min":  {
+                                                          "x":  -1060,
+                                                          "y":  -415,
+                                                          "z":  -100
+                                                      },
+                                              "Max":  {
+                                                          "x":  508,
+                                                          "y":  622,
+                                                          "z":  100
+                                                      }
+                                          }
+                                      ]
+                   },
+                   {
+                       "name":  "2nd Floor",
+                       "level":  1,
+                       "image":  "Layers_Shoreline-Second_Floor.svg",
+                       "width":  1559.57,
+                       "height":  1032.49,
+                       "imageBounds":  {
+                                           "Min":  {
+                                                       "x":  -1060,
+                                                       "y":  -415
+                                                   },
+                                           "Max":  {
+                                                       "x":  508,
+                                                       "y":  622
+                                                   }
+                                       },
+                       "gameBounds":  [
+                                          {
+                                              "Min":  {
+                                                          "x":  -375,
+                                                          "y":  -178,
+                                                          "z":  -1
+                                                      },
+                                              "Max":  {
+                                                          "x":  -128,
+                                                          "y":  -55,
+                                                          "z":  2
+                                                      }
+                                          }
+                                      ]
+                   },
+                   {
+                       "name":  "3rd Floor",
+                       "level":  2,
+                       "image":  "Layers_Shoreline-Third_Floor.svg",
+                       "width":  1559.57,
+                       "height":  1032.49,
+                       "imageBounds":  {
+                                           "Min":  {
+                                                       "x":  -1060,
+                                                       "y":  -415
+                                                   },
+                                           "Max":  {
+                                                       "x":  508,
+                                                       "y":  622
+                                                   }
+                                       },
+                       "gameBounds":  [
+                                          {
+                                              "Min":  {
+                                                          "x":  -375,
+                                                          "y":  -178,
+                                                          "z":  2
+                                                      },
+                                              "Max":  {
+                                                          "x":  -128,
+                                                          "y":  -55,
+                                                          "z":  100
+                                                      }
+                                          }
+                                      ]
+                   }
+               ]
+}

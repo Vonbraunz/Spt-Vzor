@@ -1,0 +1,451 @@
+﻿{
+    "id":  "icebreaker",
+    "display":  "Icebreaker",
+    "rotation":  180,
+    "bounds":  {
+                   "Min":  {
+                               "x":  -17.435,
+                               "y":  -84.868
+                           },
+                   "Max":  {
+                               "x":  16.982,
+                               "y":  82.875
+                           }
+               },
+    "layers":  [
+                   {
+                       "name":  "B4 - Engine Control",
+                       "level":  -4,
+                       "image":  "Layers_b4.svg",
+                       "width":  513,
+                       "height":  2537,
+                       "imageBounds":  {
+                                           "Min":  {
+                                                       "x":  -17.435,
+                                                       "y":  -84.868
+                                                   },
+                                           "Max":  {
+                                                       "x":  16.982,
+                                                       "y":  82.875
+                                                   }
+                                       },
+                       "gameBounds":  [
+                                          {
+                                              "Min":  {
+                                                          "x":  -16.1,
+                                                          "y":  -75.6,
+                                                          "z":  -100
+                                                      },
+                                              "Max":  {
+                                                          "x":  16.1,
+                                                          "y":  84.7,
+                                                          "z":  9.34
+                                                      }
+                                          }
+                                      ]
+                   },
+                   {
+                       "name":  "B3 - Engine Room",
+                       "level":  -3,
+                       "image":  "Layers_b3.svg",
+                       "width":  513,
+                       "height":  2537,
+                       "imageBounds":  {
+                                           "Min":  {
+                                                       "x":  -17.435,
+                                                       "y":  -84.868
+                                                   },
+                                           "Max":  {
+                                                       "x":  16.982,
+                                                       "y":  82.875
+                                                   }
+                                       },
+                       "gameBounds":  [
+                                          {
+                                              "Min":  {
+                                                          "x":  -16.1,
+                                                          "y":  -75.6,
+                                                          "z":  -100
+                                                      },
+                                              "Max":  {
+                                                          "x":  16.1,
+                                                          "y":  84.7,
+                                                          "z":  11.99
+                                                      }
+                                          }
+                                      ]
+                   },
+                   {
+                       "name":  "B2 - Fuel Pumps",
+                       "level":  -2,
+                       "image":  "Layers_b2.svg",
+                       "width":  513,
+                       "height":  2537,
+                       "imageBounds":  {
+                                           "Min":  {
+                                                       "x":  -17.435,
+                                                       "y":  -84.868
+                                                   },
+                                           "Max":  {
+                                                       "x":  16.982,
+                                                       "y":  82.875
+                                                   }
+                                       },
+                       "gameBounds":  [
+                                          {
+                                              "Min":  {
+                                                          "x":  -16.1,
+                                                          "y":  -75.6,
+                                                          "z":  -100
+                                                      },
+                                              "Max":  {
+                                                          "x":  16.1,
+                                                          "y":  84.7,
+                                                          "z":  14.73
+                                                      }
+                                          }
+                                      ]
+                   },
+                   {
+                       "name":  "B1 - Storage / Security",
+                       "level":  -1,
+                       "image":  "Layers_b1.svg",
+                       "width":  513,
+                       "height":  2537,
+                       "imageBounds":  {
+                                           "Min":  {
+                                                       "x":  -17.435,
+                                                       "y":  -84.868
+                                                   },
+                                           "Max":  {
+                                                       "x":  16.982,
+                                                       "y":  82.875
+                                                   }
+                                       },
+                       "gameBounds":  [
+                                          {
+                                              "Min":  {
+                                                          "x":  -16.1,
+                                                          "y":  -75.6,
+                                                          "z":  -100
+                                                      },
+                                              "Max":  {
+                                                          "x":  16.1,
+                                                          "y":  84.7,
+                                                          "z":  18.24
+                                                      }
+                                          }
+                                      ]
+                   },
+                   {
+                       "name":  "1F - Infirmary",
+                       "level":  0,
+                       "image":  "Layers_1f.svg",
+                       "width":  513,
+                       "height":  2537,
+                       "imageBounds":  {
+                                           "Min":  {
+                                                       "x":  -17.435,
+                                                       "y":  -84.868
+                                                   },
+                                           "Max":  {
+                                                       "x":  16.982,
+                                                       "y":  82.875
+                                                   }
+                                       },
+                       "gameBounds":  [
+                                          {
+                                              "Min":  {
+                                                          "x":  -16.1,
+                                                          "y":  -75.6,
+                                                          "z":  -100
+                                                      },
+                                              "Max":  {
+                                                          "x":  16.1,
+                                                          "y":  84.7,
+                                                          "z":  100
+                                                      }
+                                          }
+                                      ]
+                   },
+                   {
+                       "name":  "2F - Helipad",
+                       "level":  1,
+                       "image":  "Layers_2f.svg",
+                       "width":  510,
+                       "height":  2537,
+                       "imageBounds":  {
+                                           "Min":  {
+                                                       "x":  -17.435,
+                                                       "y":  -84.868
+                                                   },
+                                           "Max":  {
+                                                       "x":  16.982,
+                                                       "y":  82.875
+                                                   }
+                                       },
+                       "gameBounds":  [
+                                          {
+                                              "Min":  {
+                                                          "x":  -16.1,
+                                                          "y":  -75.6,
+                                                          "z":  19.8
+                                                      },
+                                              "Max":  {
+                                                          "x":  16.1,
+                                                          "y":  84.7,
+                                                          "z":  100
+                                                      }
+                                          }
+                                      ]
+                   },
+                   {
+                       "name":  "3F - Gym / Canteen",
+                       "level":  2,
+                       "image":  "Layers_3f.svg",
+                       "width":  513,
+                       "height":  2537,
+                       "imageBounds":  {
+                                           "Min":  {
+                                                       "x":  -17.435,
+                                                       "y":  -84.868
+                                                   },
+                                           "Max":  {
+                                                       "x":  16.982,
+                                                       "y":  82.875
+                                                   }
+                                       },
+                       "gameBounds":  [
+                                          {
+                                              "Min":  {
+                                                          "x":  -16.1,
+                                                          "y":  -75.6,
+                                                          "z":  22.6
+                                                      },
+                                              "Max":  {
+                                                          "x":  16.1,
+                                                          "y":  84.7,
+                                                          "z":  100
+                                                      }
+                                          }
+                                      ]
+                   },
+                   {
+                       "name":  "4F - Accommodation (Lower)",
+                       "level":  3,
+                       "image":  "Layers_4f.svg",
+                       "width":  513,
+                       "height":  2537,
+                       "imageBounds":  {
+                                           "Min":  {
+                                                       "x":  -17.435,
+                                                       "y":  -84.868
+                                                   },
+                                           "Max":  {
+                                                       "x":  16.982,
+                                                       "y":  82.875
+                                                   }
+                                       },
+                       "gameBounds":  [
+                                          {
+                                              "Min":  {
+                                                          "x":  -16.1,
+                                                          "y":  -75.6,
+                                                          "z":  25.3
+                                                      },
+                                              "Max":  {
+                                                          "x":  16.1,
+                                                          "y":  84.7,
+                                                          "z":  100
+                                                      }
+                                          }
+                                      ]
+                   },
+                   {
+                       "name":  "5F - Accommodation (Middle)",
+                       "level":  4,
+                       "image":  "Layers_5f.svg",
+                       "width":  513,
+                       "height":  2537,
+                       "imageBounds":  {
+                                           "Min":  {
+                                                       "x":  -17.435,
+                                                       "y":  -84.868
+                                                   },
+                                           "Max":  {
+                                                       "x":  16.982,
+                                                       "y":  82.875
+                                                   }
+                                       },
+                       "gameBounds":  [
+                                          {
+                                              "Min":  {
+                                                          "x":  -16.1,
+                                                          "y":  -75.6,
+                                                          "z":  28.1
+                                                      },
+                                              "Max":  {
+                                                          "x":  16.1,
+                                                          "y":  84.7,
+                                                          "z":  100
+                                                      }
+                                          }
+                                      ]
+                   },
+                   {
+                       "name":  "6F - Accommodation (Upper)",
+                       "level":  5,
+                       "image":  "Layers_6f.svg",
+                       "width":  513,
+                       "height":  2537,
+                       "imageBounds":  {
+                                           "Min":  {
+                                                       "x":  -17.435,
+                                                       "y":  -84.868
+                                                   },
+                                           "Max":  {
+                                                       "x":  16.982,
+                                                       "y":  82.875
+                                                   }
+                                       },
+                       "gameBounds":  [
+                                          {
+                                              "Min":  {
+                                                          "x":  -16.1,
+                                                          "y":  -75.6,
+                                                          "z":  30.8
+                                                      },
+                                              "Max":  {
+                                                          "x":  16.1,
+                                                          "y":  84.7,
+                                                          "z":  100
+                                                      }
+                                          }
+                                      ]
+                   },
+                   {
+                       "name":  "7F - Officers\u0027 Deck",
+                       "level":  6,
+                       "image":  "Layers_7f.svg",
+                       "width":  513,
+                       "height":  2537,
+                       "imageBounds":  {
+                                           "Min":  {
+                                                       "x":  -17.435,
+                                                       "y":  -84.868
+                                                   },
+                                           "Max":  {
+                                                       "x":  16.982,
+                                                       "y":  82.875
+                                                   }
+                                       },
+                       "gameBounds":  [
+                                          {
+                                              "Min":  {
+                                                          "x":  -16.1,
+                                                          "y":  -75.6,
+                                                          "z":  33.5
+                                                      },
+                                              "Max":  {
+                                                          "x":  16.1,
+                                                          "y":  84.7,
+                                                          "z":  100
+                                                      }
+                                          }
+                                      ]
+                   },
+                   {
+                       "name":  "8F - Stairs (Blocked)",
+                       "level":  7,
+                       "image":  "Layers_8f.svg",
+                       "width":  513,
+                       "height":  2537,
+                       "imageBounds":  {
+                                           "Min":  {
+                                                       "x":  -17.435,
+                                                       "y":  -84.868
+                                                   },
+                                           "Max":  {
+                                                       "x":  16.982,
+                                                       "y":  82.875
+                                                   }
+                                       },
+                       "gameBounds":  [
+                                          {
+                                              "Min":  {
+                                                          "x":  -16.1,
+                                                          "y":  -75.6,
+                                                          "z":  36.3
+                                                      },
+                                              "Max":  {
+                                                          "x":  16.1,
+                                                          "y":  84.7,
+                                                          "z":  100
+                                                      }
+                                          }
+                                      ]
+                   },
+                   {
+                       "name":  "9F - Bridge",
+                       "level":  8,
+                       "image":  "Layers_9f.svg",
+                       "width":  513,
+                       "height":  2537,
+                       "imageBounds":  {
+                                           "Min":  {
+                                                       "x":  -17.435,
+                                                       "y":  -84.868
+                                                   },
+                                           "Max":  {
+                                                       "x":  16.982,
+                                                       "y":  82.875
+                                                   }
+                                       },
+                       "gameBounds":  [
+                                          {
+                                              "Min":  {
+                                                          "x":  -16.1,
+                                                          "y":  -75.6,
+                                                          "z":  39
+                                                      },
+                                              "Max":  {
+                                                          "x":  16.1,
+                                                          "y":  84.7,
+                                                          "z":  100
+                                                      }
+                                          }
+                                      ]
+                   },
+                   {
+                       "name":  "10F - Bridge Roof",
+                       "level":  9,
+                       "image":  "Layers_10f.svg",
+                       "width":  513,
+                       "height":  2537,
+                       "imageBounds":  {
+                                           "Min":  {
+                                                       "x":  -17.435,
+                                                       "y":  -84.868
+                                                   },
+                                           "Max":  {
+                                                       "x":  16.982,
+                                                       "y":  82.875
+                                                   }
+                                       },
+                       "gameBounds":  [
+                                          {
+                                              "Min":  {
+                                                          "x":  -16.1,
+                                                          "y":  -75.6,
+                                                          "z":  41.8
+                                                      },
+                                              "Max":  {
+                                                          "x":  16.1,
+                                                          "y":  84.7,
+                                                          "z":  100
+                                                      }
+                                          }
+                                      ]
+                   }
+               ]
+}

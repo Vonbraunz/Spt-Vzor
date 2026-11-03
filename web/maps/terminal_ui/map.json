@@ -1,0 +1,110 @@
+﻿{
+    "id":  "terminal_ui",
+    "display":  "Terminal",
+    "rotation":  180,
+    "bounds":  {
+                   "Min":  {
+                               "x":  -450,
+                               "y":  -585
+                           },
+                   "Max":  {
+                               "x":  475,
+                               "y":  480
+                           }
+               },
+    "layers":  [
+                   {
+                       "name":  "Ground Floor",
+                       "level":  0,
+                       "image":  "Layers_Terminal-Ground.svg",
+                       "width":  925,
+                       "height":  1065,
+                       "imageBounds":  {
+                                           "Min":  {
+                                                       "x":  -450,
+                                                       "y":  -585
+                                                   },
+                                           "Max":  {
+                                                       "x":  475,
+                                                       "y":  480
+                                                   }
+                                       },
+                       "gameBounds":  [
+                                          {
+                                              "Min":  {
+                                                          "x":  -450,
+                                                          "y":  -585,
+                                                          "z":  -10000
+                                                      },
+                                              "Max":  {
+                                                          "x":  475,
+                                                          "y":  480,
+                                                          "z":  10000
+                                                      }
+                                          }
+                                      ]
+                   },
+                   {
+                       "name":  "Marine Station 2F",
+                       "level":  1,
+                       "image":  "Layers_Terminal-Marine-2F.svg",
+                       "width":  925,
+                       "height":  1065,
+                       "imageBounds":  {
+                                           "Min":  {
+                                                       "x":  -450,
+                                                       "y":  -585
+                                                   },
+                                           "Max":  {
+                                                       "x":  475,
+                                                       "y":  480
+                                                   }
+                                       },
+                       "gameBounds":  [
+                                          {
+                                              "Min":  {
+                                                          "x":  257,
+                                                          "y":  -297,
+                                                          "z":  -58.3
+                                                      },
+                                              "Max":  {
+                                                          "x":  293,
+                                                          "y":  -189,
+                                                          "z":  -53.3
+                                                      }
+                                          }
+                                      ]
+                   },
+                   {
+                       "name":  "Pumping Basement",
+                       "level":  -1,
+                       "image":  "Layers_Terminal-Pump-Basement.svg",
+                       "width":  925,
+                       "height":  1065,
+                       "imageBounds":  {
+                                           "Min":  {
+                                                       "x":  -450,
+                                                       "y":  -585
+                                                   },
+                                           "Max":  {
+                                                       "x":  475,
+                                                       "y":  480
+                                                   }
+                                       },
+                       "gameBounds":  [
+                                          {
+                                              "Min":  {
+                                                          "x":  131,
+                                                          "y":  254,
+                                                          "z":  -10000
+                                                      },
+                                              "Max":  {
+                                                          "x":  180,
+                                                          "y":  268,
+                                                          "z":  -61.3
+                                                      }
+                                          }
+                                      ]
+                   }
+               ]
+}

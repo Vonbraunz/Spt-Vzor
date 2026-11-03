@@ -36,6 +36,17 @@ Config-driven. Two keys exist: `Insert` opens the in-game menu, and `Aim Key` (L
 
 `Insert` opens a generic config menu. It enumerates every entry in the config file and renders a widget by type (toggle for bools, sliders for ranged numbers, text fields for strings), so new settings appear without any menu code. The cursor is released while it is open and restored on close. The window is draggable by its title bar.
 
+### Web map
+
+A live map of the current raid in your browser, served by the plugin on loopback.
+
+- Open `http://127.0.0.1:6970/` while in a raid. Off by default, enable with `[Web Map] Enabled`.
+- Shows your position and heading, plus every alive body colour coded by faction.
+- Map art for every playable location, with the floor picked from your height.
+- Point and click calibration: stand somewhere, press `P`, then click the art where you are. Three or more spread out points solve rotation, scale, offset and mirroring, and the residual is shown in pixels. Each map's fit is saved.
+- Sliders, `shift`+drag and `shift`+wheel adjust the art by hand afterwards. Only the art moves, the dots are truth.
+- The page and its assets live in `BepInEx\plugins\Vzor\web`, so they can be edited and reloaded without restarting the game.
+
 ### Aimbot
 
 - Aim only, no triggerbot. Hold `Aim Key` (LeftControl by default).
@@ -88,6 +99,7 @@ Sections:
 - `[QoL]` stamina, recoil, sway, malfunction, instant search.
 - `[Aimbot]` enabled, aim key, FOV, distance, smoothing, magic bullet.
 - `[Menu]` the in-game menu toggle key.
+- `[Web Map]` enabled, port and refresh rate for the browser map.
 
 One trap worth knowing: if you edit the file while the game is running and then press a key that saves config, the save can overwrite your edit. There are no config-saving hotkeys any more, so in practice: edit, save, done.
 

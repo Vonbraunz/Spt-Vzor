@@ -1,0 +1,110 @@
+﻿{
+    "id":  "interchange",
+    "display":  "Interchange (Rework)",
+    "rotation":  180,
+    "bounds":  {
+                   "Min":  {
+                               "x":  -390,
+                               "y":  -460
+                           },
+                   "Max":  {
+                               "x":  650,
+                               "y":  460
+                           }
+               },
+    "layers":  [
+                   {
+                       "name":  "Ground",
+                       "level":  0,
+                       "image":  "Layers_Interchange-Ground.svg",
+                       "width":  1040,
+                       "height":  920,
+                       "imageBounds":  {
+                                           "Min":  {
+                                                       "x":  -390,
+                                                       "y":  -460
+                                                   },
+                                           "Max":  {
+                                                       "x":  650,
+                                                       "y":  460
+                                                   }
+                                       },
+                       "gameBounds":  [
+                                          {
+                                              "Min":  {
+                                                          "x":  -390,
+                                                          "y":  -460,
+                                                          "z":  -10000
+                                                      },
+                                              "Max":  {
+                                                          "x":  650,
+                                                          "y":  460,
+                                                          "z":  10000
+                                                      }
+                                          }
+                                      ]
+                   },
+                   {
+                       "name":  "1F",
+                       "level":  1,
+                       "image":  "Layers_Interchange-1F.svg",
+                       "width":  1040,
+                       "height":  920,
+                       "imageBounds":  {
+                                           "Min":  {
+                                                       "x":  -390,
+                                                       "y":  -460
+                                                   },
+                                           "Max":  {
+                                                       "x":  650,
+                                                       "y":  460
+                                                   }
+                                       },
+                       "gameBounds":  [
+                                          {
+                                              "Min":  {
+                                                          "x":  -225,
+                                                          "y":  -335,
+                                                          "z":  25
+                                                      },
+                                              "Max":  {
+                                                          "x":  175,
+                                                          "y":  220,
+                                                          "z":  34
+                                                      }
+                                          }
+                                      ]
+                   },
+                   {
+                       "name":  "2F",
+                       "level":  2,
+                       "image":  "Layers_Interchange-2F.svg",
+                       "width":  1040,
+                       "height":  920,
+                       "imageBounds":  {
+                                           "Min":  {
+                                                       "x":  -390,
+                                                       "y":  -460
+                                                   },
+                                           "Max":  {
+                                                       "x":  650,
+                                                       "y":  460
+                                                   }
+                                       },
+                       "gameBounds":  [
+                                          {
+                                              "Min":  {
+                                                          "x":  -225,
+                                                          "y":  -335,
+                                                          "z":  34
+                                                      },
+                                              "Max":  {
+                                                          "x":  175,
+                                                          "y":  220,
+                                                          "z":  10000
+                                                      }
+                                          }
+                                      ]
+                   }
+               ]
+}

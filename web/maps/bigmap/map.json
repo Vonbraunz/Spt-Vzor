@@ -16,7 +16,7 @@
                    {
                        "name":  "Underground",
                        "level":  -1,
-                       "image":  "Customs-Underground_Level.svg",
+                       "image":  "Layers_Customs-Underground_Level.svg",
                        "width":  1062.4827,
                        "height":  535.174,
                        "imageBounds":  {
@@ -119,7 +119,7 @@
                    {
                        "name":  "Ground Floor",
                        "level":  0,
-                       "image":  "Customs-Ground_Level.svg",
+                       "image":  "Layers_Customs-Ground_Level.svg",
                        "width":  1062.48,
                        "height":  535.17,
                        "imageBounds":  {
@@ -150,7 +150,7 @@
                    {
                        "name":  "2nd Floor",
                        "level":  1,
-                       "image":  "Customs-Second_Floor.svg",
+                       "image":  "Layers_Customs-Second_Floor.svg",
                        "width":  1062.4827,
                        "height":  535.174,
                        "imageBounds":  {
@@ -373,7 +373,7 @@
                    {
                        "name":  "3rd Floor",
                        "level":  2,
-                       "image":  "Customs-Third_Floor.svg",
+                       "image":  "Layers_Customs-Third_Floor.svg",
                        "width":  1062.4827,
                        "height":  535.174,
                        "imageBounds":  {
@@ -440,7 +440,7 @@
                    {
                        "name":  "4th Floor",
                        "level":  3,
-                       "image":  "Customs-Fourth_Floor.svg",
+                       "image":  "Layers_Customs-Fourth_Floor.svg",
                        "width":  1062.4827,
                        "height":  535.174,
                        "imageBounds":  {

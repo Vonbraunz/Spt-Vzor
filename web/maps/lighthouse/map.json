@@ -1,0 +1,48 @@
+﻿{
+    "id":  "lighthouse",
+    "display":  "Lighthouse (Rework)",
+    "rotation":  180,
+    "bounds":  {
+                   "Min":  {
+                               "x":  -545,
+                               "y":  -998
+                           },
+                   "Max":  {
+                               "x":  515,
+                               "y":  725
+                           }
+               },
+    "layers":  [
+                   {
+                       "name":  "Ground Floor",
+                       "level":  0,
+                       "image":  "Layers_Lighthouse-Rework.svg",
+                       "width":  1060,
+                       "height":  1723,
+                       "imageBounds":  {
+                                           "Min":  {
+                                                       "x":  -545,
+                                                       "y":  -998
+                                                   },
+                                           "Max":  {
+                                                       "x":  515,
+                                                       "y":  725
+                                                   }
+                                       },
+                       "gameBounds":  [
+                                          {
+                                              "Min":  {
+                                                          "x":  -545,
+                                                          "y":  -998,
+                                                          "z":  -10000
+                                                      },
+                                              "Max":  {
+                                                          "x":  515,
+                                                          "y":  725,
+                                                          "z":  10000
+                                                      }
+                                          }
+                                      ]
+                   }
+               ]
+}

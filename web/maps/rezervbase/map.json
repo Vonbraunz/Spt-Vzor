@@ -1,0 +1,79 @@
+﻿{
+    "id":  "rezervbase",
+    "display":  "Reserve (TarkovData)",
+    "rotation":  180,
+    "bounds":  {
+                   "Min":  {
+                               "x":  -303.5,
+                               "y":  -275
+                           },
+                   "Max":  {
+                               "x":  292,
+                               "y":  271.5
+                           }
+               },
+    "layers":  [
+                   {
+                       "name":  "Bunkers",
+                       "level":  -1,
+                       "image":  "Layers_Reserve-Bunkers.svg",
+                       "width":  827.29,
+                       "height":  761.16,
+                       "imageBounds":  {
+                                           "Min":  {
+                                                       "x":  -303.5,
+                                                       "y":  -275
+                                                   },
+                                           "Max":  {
+                                                       "x":  292,
+                                                       "y":  271.5
+                                                   }
+                                       },
+                       "gameBounds":  [
+                                          {
+                                              "Min":  {
+                                                          "x":  -303.5,
+                                                          "y":  -275,
+                                                          "z":  -100
+                                                      },
+                                              "Max":  {
+                                                          "x":  292,
+                                                          "y":  271.5,
+                                                          "z":  -8
+                                                      }
+                                          }
+                                      ]
+                   },
+                   {
+                       "name":  "Ground Level",
+                       "level":  0,
+                       "image":  "Layers_Reserve-Ground_Level.svg",
+                       "width":  827.29,
+                       "height":  761.16,
+                       "imageBounds":  {
+                                           "Min":  {
+                                                       "x":  -303.5,
+                                                       "y":  -275
+                                                   },
+                                           "Max":  {
+                                                       "x":  292,
+                                                       "y":  271.5
+                                                   }
+                                       },
+                       "gameBounds":  [
+                                          {
+                                              "Min":  {
+                                                          "x":  -303.5,
+                                                          "y":  -275,
+                                                          "z":  -8
+                                                      },
+                                              "Max":  {
+                                                          "x":  292,
+                                                          "y":  271.5,
+                                                          "z":  100
+                                                      }
+                                          }
+                                      ]
+                   }
+               ]
+}

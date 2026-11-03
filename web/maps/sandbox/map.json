@@ -1,0 +1,165 @@
+﻿{
+    "id":  "sandbox",
+    "display":  "Ground Zero (TarkovDev)",
+    "rotation":  180,
+    "bounds":  {
+                   "Min":  {
+                               "x":  -99,
+                               "y":  -124
+                           },
+                   "Max":  {
+                               "x":  249,
+                               "y":  364
+                           }
+               },
+    "layers":  [
+                   {
+                       "name":  "Garage",
+                       "level":  -1,
+                       "image":  "Layers_GroundZero-Underground_Level.svg",
+                       "width":  348.93,
+                       "height":  488.45,
+                       "imageBounds":  {
+                                           "Min":  {
+                                                       "x":  -99,
+                                                       "y":  -124
+                                                   },
+                                           "Max":  {
+                                                       "x":  249,
+                                                       "y":  364
+                                                   }
+                                       },
+                       "gameBounds":  [
+                                          {
+                                              "Min":  {
+                                                          "x":  43,
+                                                          "y":  -100,
+                                                          "z":  -100
+                                                      },
+                                              "Max":  {
+                                                          "x":  117,
+                                                          "y":  190,
+                                                          "z":  21
+                                                      }
+                                          },
+                                          {
+                                              "Min":  {
+                                                          "x":  117,
+                                                          "y":  49,
+                                                          "z":  -100
+                                                      },
+                                              "Max":  {
+                                                          "x":  143,
+                                                          "y":  80,
+                                                          "z":  21
+                                                      }
+                                          }
+                                      ]
+                   },
+                   {
+                       "name":  "Ground Floor",
+                       "level":  0,
+                       "image":  "Layers_GroundZero-Ground_Level.svg",
+                       "width":  348.93,
+                       "height":  488.45,
+                       "imageBounds":  {
+                                           "Min":  {
+                                                       "x":  -99,
+                                                       "y":  -124
+                                                   },
+                                           "Max":  {
+                                                       "x":  249,
+                                                       "y":  364
+                                                   }
+                                       },
+                       "gameBounds":  [
+                                          {
+                                              "Min":  {
+                                                          "x":  -99,
+                                                          "y":  -124,
+                                                          "z":  -100
+                                                      },
+                                              "Max":  {
+                                                          "x":  249,
+                                                          "y":  364,
+                                                          "z":  100
+                                                      }
+                                          }
+                                      ]
+                   },
+                   {
+                       "name":  "2nd Floor",
+                       "level":  1,
+                       "image":  "Layers_GroundZero-Second_Floor.svg",
+                       "width":  348.93,
+                       "height":  488.45,
+                       "imageBounds":  {
+                                           "Min":  {
+                                                       "x":  -99,
+                                                       "y":  -124
+                                                   },
+                                           "Max":  {
+                                                       "x":  249,
+                                                       "y":  364
+                                                   }
+                                       },
+                       "gameBounds":  [
+                                          {
+                                              "Min":  {
+                                                          "x":  -99,
+                                                          "y":  -124,
+                                                          "z":  28
+                                                      },
+                                              "Max":  {
+                                                          "x":  249,
+                                                          "y":  364,
+                                                          "z":  32.3
+                                                      }
+                                          },
+                                          {
+                                              "Min":  {
+                                                          "x":  91,
+                                                          "y":  216,
+                                                          "z":  26
+                                                      },
+                                              "Max":  {
+                                                          "x":  98,
+                                                          "y":  228,
+                                                          "z":  31
+                                                      }
+                                          }
+                                      ]
+                   },
+                   {
+                       "name":  "3rd Floor",
+                       "level":  2,
+                       "image":  "Layers_GroundZero-Third_Floor.svg",
+                       "width":  348.93,
+                       "height":  488.45,
+                       "imageBounds":  {
+                                           "Min":  {
+                                                       "x":  -99,
+                                                       "y":  -124
+                                                   },
+                                           "Max":  {
+                                                       "x":  249,
+                                                       "y":  364
+                                                   }
+                                       },
+                       "gameBounds":  [
+                                          {
+                                              "Min":  {
+                                                          "x":  -99,
+                                                          "y":  -124,
+                                                          "z":  32.3
+                                                      },
+                                              "Max":  {
+                                                          "x":  249,
+                                                          "y":  364,
+                                                          "z":  100
+                                                      }
+                                          }
+                                      ]
+                   }
+               ]
+}

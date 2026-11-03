@@ -1,0 +1,110 @@
+﻿{
+    "id":  "laboratory",
+    "display":  "Labs (Rework)",
+    "rotation":  270,
+    "bounds":  {
+                   "Min":  {
+                               "x":  -292,
+                               "y":  -449
+                           },
+                   "Max":  {
+                               "x":  -78,
+                               "y":  -223
+                           }
+               },
+    "layers":  [
+                   {
+                       "name":  "Technical",
+                       "level":  -1,
+                       "image":  "Labs_Technical_Level.svg",
+                       "width":  746.42,
+                       "height":  639.82,
+                       "imageBounds":  {
+                                           "Min":  {
+                                                       "x":  -292,
+                                                       "y":  -449
+                                                   },
+                                           "Max":  {
+                                                       "x":  -78,
+                                                       "y":  -223
+                                                   }
+                                       },
+                       "gameBounds":  [
+                                          {
+                                              "Min":  {
+                                                          "x":  -292,
+                                                          "y":  -449,
+                                                          "z":  -100
+                                                      },
+                                              "Max":  {
+                                                          "x":  -78,
+                                                          "y":  -223,
+                                                          "z":  -0.9
+                                                      }
+                                          }
+                                      ]
+                   },
+                   {
+                       "name":  "First Level",
+                       "level":  0,
+                       "image":  "Labs_First_Level.svg",
+                       "width":  746.42,
+                       "height":  639.82,
+                       "imageBounds":  {
+                                           "Min":  {
+                                                       "x":  -292,
+                                                       "y":  -449
+                                                   },
+                                           "Max":  {
+                                                       "x":  -78,
+                                                       "y":  -223
+                                                   }
+                                       },
+                       "gameBounds":  [
+                                          {
+                                              "Min":  {
+                                                          "x":  -292,
+                                                          "y":  -449,
+                                                          "z":  -0.9
+                                                      },
+                                              "Max":  {
+                                                          "x":  -78,
+                                                          "y":  -223,
+                                                          "z":  3
+                                                      }
+                                          }
+                                      ]
+                   },
+                   {
+                       "name":  "Second Level",
+                       "level":  1,
+                       "image":  "Layers_Labs_Second_Level_Rework.svg",
+                       "width":  746.42,
+                       "height":  639.82,
+                       "imageBounds":  {
+                                           "Min":  {
+                                                       "x":  -292,
+                                                       "y":  -449
+                                                   },
+                                           "Max":  {
+                                                       "x":  -78,
+                                                       "y":  -223
+                                                   }
+                                       },
+                       "gameBounds":  [
+                                          {
+                                              "Min":  {
+                                                          "x":  -271,
+                                                          "y":  -422,
+                                                          "z":  3
+                                                      },
+                                              "Max":  {
+                                                          "x":  -101,
+                                                          "y":  -270,
+                                                          "z":  100
+                                                      }
+                                          }
+                                      ]
+                   }
+               ]
+}
