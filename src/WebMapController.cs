@@ -10,6 +10,7 @@ using System.Threading;
 using BepInEx.Configuration;
 using EFT;
 using EFT.Interactive;
+using EFT.Quests;
 using UnityEngine;
 
 namespace Vzor
@@ -31,6 +32,11 @@ namespace Vzor
         private float _nextExfil;
         private float _nextLoot;
         private float _nextTransit;
+        private float _nextQuest;
+        private string _questJson = "{\"items\":[],\"quests\":[],\"zones\":[],\"loot\":[],\"containers\":[]}";
+        private string _questContainerJson = "[]";
+        private float _nextQuestContainer;
+        private readonly HashSet<string> _wantedQuestItems = new HashSet<string>();
         private string _transitJson = "[]";
         private string _lootJson = "[]";
         private DateTime _lootWantedUntil = DateTime.MinValue;
@@ -94,6 +100,22 @@ namespace Vzor
                 {
                     _nextExfil = now + 2f;
                     _exfilJson = world != null ? BuildExfils(world) : "[]";
+                }
+
+                // quest state changes as you loot and hand in, so it gets its own slow-ish tick
+                if (now >= _nextQuest)
+                {
+                    _nextQuest = now + 10f;
+                    _questJson = world != null
+                        ? BuildQuestData(world)
+                        : "{\"items\":[],\"quests\":[],\"zones\":[],\"loot\":[]}";
+                }
+
+                // walking container inventories is the expensive part, so it runs less often
+                if (now >= _nextQuestContainer)
+                {
+                    _nextQuestContainer = now + 30f;
+                    _questContainerJson = world != null ? BuildQuestContainers(world) : "[]";
                 }
 
                 // transits are fixed for the raid, so they get a slow timer and no per-tick cost
@@ -512,6 +534,10 @@ namespace Vzor
             var world = WorldTracker.Current;
             if (world == null) return "{\"inRaid\":false}";
 
+            // the hideout has a game world but it is not a raid. nothing on the map applies there.
+            if (string.Equals(SafeLocationId(world), "hideout", StringComparison.OrdinalIgnoreCase))
+                return "{\"inRaid\":false}";
+
             var me = world.MainPlayer;
             var players = world.AllAlivePlayersList;
             var sb = new StringBuilder(4096);
@@ -620,6 +646,7 @@ namespace Vzor
 
             sb.Append("],\"exfils\":").Append(_exfilJson);
             sb.Append(",\"transits\":").Append(_transitJson);
+            sb.Append(",\"quest\":").Append(_questJson);
 
             // bodies are entities that were alive on an earlier push and are gone now. the game
             // removes corpses before we can always read them, but it cannot hide the fact that
@@ -663,6 +690,708 @@ namespace Vzor
             }
 
             return name;
+        }
+
+        // what is inside the containers on this map, but only items an active quest wants.
+        // reading a container's inventory is cheap once and expensive across a whole map, hence
+        // the thirty second timer and the cap.
+        private string BuildQuestContainers(GameWorld world)
+        {
+            var sb = new StringBuilder("[");
+            var first = true;
+
+            if (_wantedQuestItems.Count == 0)
+            {
+                sb.Append(']');
+                return sb.ToString();
+            }
+
+            var wanted = new HashSet<string>(_wantedQuestItems);
+
+            try
+            {
+                var list = world.LootList;
+                if (list != null)
+                {
+                    var found = 0;
+
+                    for (var i = 0; i < list.Count && found < 200; i++)
+                    {
+                        LootableContainer container = null;
+
+                        try
+                        {
+                            var entry = list[i];
+                            if (entry != null) container = entry.TryCast<LootableContainer>();
+                        }
+                        catch
+                        {
+                            continue;
+                        }
+
+                        if (container == null) continue;
+
+                        var owner = container.ItemOwner;
+                        if (owner == null) continue;
+
+                        var root = owner.RootItem;
+                        if (root == null) continue;
+
+                        var names = new List<string>();
+
+                        try
+                        {
+                            var items = EFT.InventoryLogic.ItemExtensions.GetAllItems(root);
+                            if (items == null) continue;
+
+                            var enumerator = items.GetEnumerator();
+                            while (enumerator.MoveNext())
+                            {
+                                var child = enumerator.Current;
+                                if (child == null) continue;
+
+                                var id = child.StringTemplateId;
+                                if (string.IsNullOrEmpty(id) || !wanted.Contains(id)) continue;
+
+                                var name = LootEspController.ResolveName(id, child, child.Name);
+                                if (!string.IsNullOrEmpty(name)) names.Add(name);
+                            }
+                        }
+                        catch
+                        {
+                            continue;
+                        }
+
+                        if (names.Count == 0) continue;
+
+                        var position = container.transform.position;
+                        if (!first) sb.Append(',');
+                        first = false;
+                        found++;
+
+                        sb.Append("{\"x\":").Append(Num(position.x));
+                        sb.Append(",\"z\":").Append(Num(position.z));
+                        sb.Append(",\"n\":\"").Append(JsonEscape(string.Join(", ", names.ToArray()))).Append('"');
+                        sb.Append('}');
+                    }
+                }
+            }
+            catch
+            {
+                // loot list mid update
+            }
+
+            sb.Append(']');
+            return sb.ToString();
+        }
+
+        // quests worth showing: those pinned to this map, plus the "any" ones that actually
+        // name a zone on this map. everything else is noise for the raid you are in.
+        private string BuildQuestData(GameWorld world)
+        {
+            var locationId = SafeLocationId(world);
+            var profile = world.MainPlayer != null ? world.MainPlayer.Profile : null;
+            var candidates = new List<QuestEntry>();
+
+            if (profile != null)
+            {
+                try
+                {
+                    var data = profile.QuestsData;
+                    if (data != null)
+                    {
+                        for (var i = 0; i < data.Count; i++)
+                        {
+                            var entry = data[i];
+                            if (entry == null) continue;
+                            if (entry.Status != EQuestStatus.Started) continue;
+
+                            var quest = entry.Quest;
+                            if (quest == null) continue;
+
+                            var template = quest.Template;
+                            var questLocation = template != null ? template.LocationId : null;
+
+                            var candidate = new QuestEntry
+                            {
+                                Name = QuestDisplayName(quest),
+                                Status = entry.Status.ToString(),
+                                Location = questLocation,
+                                IsAny = string.IsNullOrEmpty(questLocation) ||
+                                        questLocation.Equals("any", StringComparison.OrdinalIgnoreCase),
+                                Ids = new List<string>(),
+                                Zones = new List<string>(),
+                                Locations = new List<string>(),
+                                Needs = new List<QuestNeed>()
+                            };
+
+                            var conditions = quest.NecessaryConditions;
+                            if (conditions != null)
+                            {
+                                var enumerator = conditions.GetEnumerator();
+                                while (enumerator.MoveNext())
+                                {
+                                    CollectCondition(enumerator.Current, candidate);
+                                }
+                            }
+
+                            candidates.Add(candidate);
+                        }
+                    }
+                }
+                catch
+                {
+                    // quest data mid update
+                }
+            }
+
+            // one trigger scan, used both to decide relevance and to place zone markers
+            var presentZones = new Dictionary<string, Vector3>();
+
+            if (candidates.Count > 0)
+            {
+                try
+                {
+                    var place = UnityEngine.Object.FindObjectsOfType<PlaceItemTrigger>();
+                    if (place != null)
+                    {
+                        for (var i = 0; i < place.Length; i++)
+                        {
+                            var trigger = place[i];
+                            if (trigger == null) continue;
+
+                            var id = trigger.TriggerId;
+                            if (string.IsNullOrEmpty(id)) id = trigger.Id;
+                            if (string.IsNullOrEmpty(id) || presentZones.ContainsKey(id)) continue;
+
+                            presentZones[id] = trigger.transform.position;
+                        }
+                    }
+
+                    var visits = UnityEngine.Object.FindObjectsOfType<QuestTrigger>();
+                    if (visits != null)
+                    {
+                        for (var i = 0; i < visits.Length; i++)
+                        {
+                            var trigger = visits[i];
+                            if (trigger == null) continue;
+
+                            var id = trigger.Id;
+                            if (string.IsNullOrEmpty(id) || presentZones.ContainsKey(id)) continue;
+
+                            presentZones[id] = trigger.transform.position;
+                        }
+                    }
+                }
+                catch
+                {
+                    // triggers not spawned yet
+                }
+            }
+
+            var included = new List<QuestEntry>();
+            var seenNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var required = new Dictionary<string, int>();
+            var zoneNames = new Dictionary<string, string>();
+
+            foreach (var candidate in candidates)
+            {
+                bool include;
+
+                include = false;
+
+                // a location condition naming this map is the strongest signal there is
+                var here = CurrentLocationIds(locationId);
+
+                foreach (var location in candidate.Locations)
+                {
+                    if (!here.Contains(location)) continue;
+                    include = true;
+                    break;
+                }
+
+                if (!include && !candidate.IsAny)
+                    include = QuestAppliesHere(candidate.Location, locationId);
+
+                if (!include && candidate.IsAny)
+                {
+                    // last resort for an "any" quest: does it name a zone that exists here
+                    foreach (var zone in candidate.Zones)
+                    {
+                        if (!presentZones.ContainsKey(zone)) continue;
+                        include = true;
+                        break;
+                    }
+                }
+
+                if (!include) continue;
+                if (!seenNames.Add(candidate.Name)) continue;
+
+                included.Add(candidate);
+
+                foreach (var need in candidate.Needs)
+                {
+                    if (!required.TryGetValue(need.Id, out var existing) || need.Amount > existing)
+                        required[need.Id] = need.Amount;
+                }
+
+                foreach (var zone in candidate.Zones)
+                {
+                    if (presentZones.ContainsKey(zone) && !zoneNames.ContainsKey(zone))
+                        zoneNames[zone] = candidate.Name;
+                }
+            }
+
+            // count what you are actually carrying, and only chase the shortfall
+            var carried = CountCarried(profile);
+
+            _wantedQuestItems.Clear();
+
+            foreach (var pair in required)
+            {
+                carried.TryGetValue(pair.Key, out var have);
+                if (have < pair.Value) _wantedQuestItems.Add(pair.Key);
+            }
+
+            var quests = new StringBuilder("[");
+
+            for (var i = 0; i < included.Count; i++)
+            {
+                if (i > 0) quests.Append(',');
+
+                quests.Append("{\"n\":\"").Append(JsonEscape(included[i].Name)).Append('"');
+                quests.Append(",\"s\":\"").Append(JsonEscape(included[i].Status)).Append('"');
+                quests.Append(",\"story\":").Append(included[i].IsAny ? "true" : "false");
+                quests.Append(",\"i\":[");
+
+                var firstItem = true;
+                var seen = new HashSet<string>();
+
+                foreach (var id in included[i].Ids)
+                {
+                    if (!_wantedQuestItems.Contains(id) || !seen.Add(id)) continue;
+
+                    var itemName = LootEspController.ResolveName(id, null, id);
+                    if (string.IsNullOrEmpty(itemName)) continue;
+
+                    if (!firstItem) quests.Append(',');
+                    firstItem = false;
+
+                    quests.Append('"').Append(JsonEscape(itemName)).Append('"');
+                }
+
+                quests.Append("]}");
+            }
+
+            quests.Append(']');
+
+            var loot = new StringBuilder("[");
+            var firstLoot = true;
+
+            if (_wantedQuestItems.Count > 0)
+            {
+                try
+                {
+                    var list = world.LootList;
+                    if (list != null)
+                    {
+                        var found = 0;
+
+                        for (var i = 0; i < list.Count && found < 500; i++)
+                        {
+                            LootItem item = null;
+
+                            try
+                            {
+                                var entry = list[i];
+                                if (entry != null) item = entry.TryCast<LootItem>();
+                            }
+                            catch
+                            {
+                                continue;
+                            }
+
+                            if (item == null) continue;
+                            if (!_wantedQuestItems.Contains(item.TemplateId)) continue;
+
+                            var position = item.transform.position;
+                            if (!firstLoot) loot.Append(',');
+                            firstLoot = false;
+                            found++;
+
+                            loot.Append("{\"x\":").Append(Num(position.x));
+                            loot.Append(",\"z\":").Append(Num(position.z));
+                            loot.Append(",\"n\":\"").Append(JsonEscape(LootEspController.ResolveName(
+                                item.TemplateId, item.Item, item.Name))).Append('"');
+                            loot.Append('}');
+                        }
+                    }
+                }
+                catch
+                {
+                    // loot list not ready
+                }
+            }
+
+            loot.Append(']');
+
+            var zones = new StringBuilder("[");
+            var firstZone = true;
+
+            foreach (var pair in presentZones)
+            {
+                if (!zoneNames.TryGetValue(pair.Key, out var label)) continue;
+                AppendZone(zones, ref firstZone, pair.Value, pair.Key, zoneNames);
+            }
+
+            zones.Append(']');
+
+            var sb = new StringBuilder(4096);
+            sb.Append("{\"items\":[");
+
+            var firstWanted = true;
+            foreach (var id in _wantedQuestItems)
+            {
+                if (!firstWanted) sb.Append(',');
+                firstWanted = false;
+                sb.Append('"').Append(JsonEscape(id)).Append('"');
+            }
+
+            sb.Append("],\"quests\":").Append(quests);
+            sb.Append(",\"zones\":").Append(zones);
+            sb.Append(",\"loot\":").Append(loot);
+            sb.Append(",\"containers\":").Append(_questContainerJson);
+            sb.Append('}');
+
+            return sb.ToString();
+        }
+        // quest locations are mongoids, not folder names, so "bigmap" has to be translated
+        // through the location data before it can be compared.
+        private static Dictionary<string, string> _locationIds;
+        private static Dictionary<string, string> _locationNames;
+
+        private static string LocationMongoId(string folder)
+        {
+            if (string.IsNullOrEmpty(folder)) return null;
+
+            if (_locationIds == null)
+            {
+                _locationIds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+                try
+                {
+                    var pluginDir = Path.GetDirectoryName(typeof(WebMapController).Assembly.Location);
+                    var gameRoot = Path.GetFullPath(Path.Combine(pluginDir, "..", "..", ".."));
+                    var locations = Path.Combine(gameRoot, "SPT_Runtime", "SPT_Data", "database", "locations");
+
+                    _locationNames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+                    if (Directory.Exists(locations))
+                    {
+                        foreach (var dir in Directory.GetDirectories(locations))
+                        {
+                            var file = Path.Combine(dir, "base.json");
+                            if (!File.Exists(file)) continue;
+
+                            var folderName = Path.GetFileName(dir);
+                            var hasId = false;
+                            var hasName = false;
+
+                            foreach (var line in File.ReadLines(file))
+                            {
+                                if (!hasId)
+                                {
+                                    var id = Regex.Match(line, "\"_Id\"\\s*:\\s*\"([0-9a-fA-F]{24})\"");
+                                    if (id.Success)
+                                    {
+                                        _locationIds[folderName] = id.Groups[1].Value;
+                                        hasId = true;
+                                    }
+                                }
+
+                                if (!hasName)
+                                {
+                                    // root level only: nested keys are indented further
+                                    var name = Regex.Match(line, "^  \"Name\"\\s*:\\s*\"([^\"]+)\"");
+                                    if (name.Success)
+                                    {
+                                        _locationNames[folderName] = name.Groups[1].Value;
+                                        hasName = true;
+                                    }
+                                }
+
+                                if (hasId && hasName) break;
+                            }
+                        }
+                    }
+                }
+                catch
+                {
+                    // no location data, fall back to accepting everything
+                }
+            }
+
+            return _locationIds.TryGetValue(folder, out var found) ? found : null;
+        }
+
+        private static string BaseFolder(string folder)
+        {
+            switch (folder.ToLowerInvariant())
+            {
+                case "lighthouse2": return "lighthouse";
+                case "laboratory_dark": return "laboratory";
+                case "terminal_ui": return "terminal";
+                case "sandbox_high": return "sandbox";
+                case "sandbox_start": return "sandbox";
+                default: return folder;
+            }
+        }
+
+        // every location id that counts as "here": the map itself, its base variant, and the
+        // other factory shift.
+        private static HashSet<string> CurrentLocationIds(string locationId)
+        {
+            var keys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            AddLocationKeys(locationId, keys);
+            AddLocationKeys(BaseFolder(locationId), keys);
+
+            if (locationId.StartsWith("factory4", StringComparison.OrdinalIgnoreCase))
+            {
+                AddLocationKeys("factory4_day", keys);
+                AddLocationKeys("factory4_night", keys);
+            }
+
+            return keys;
+        }
+
+        // location conditions name a map ("Interchange"), quest templates use a mongoid, and
+        // our own ids are folder names. accept all three spellings.
+        private static void AddLocationKeys(string folder, HashSet<string> keys)
+        {
+            if (string.IsNullOrEmpty(folder)) return;
+
+            LocationMongoId(folder);
+
+            keys.Add(folder);
+
+            if (_locationIds != null && _locationIds.TryGetValue(folder, out var id) && !string.IsNullOrEmpty(id))
+                keys.Add(id);
+
+            if (_locationNames != null && _locationNames.TryGetValue(folder, out var name) && !string.IsNullOrEmpty(name))
+                keys.Add(name);
+        }
+
+        private static bool QuestAppliesHere(string questLocation, string locationId)
+        {
+            if (string.IsNullOrEmpty(questLocation)) return false;
+            if (questLocation.Equals("any", StringComparison.OrdinalIgnoreCase)) return false;
+            if (string.IsNullOrEmpty(locationId)) return true;
+
+            if (questLocation.Equals(locationId, StringComparison.OrdinalIgnoreCase)) return true;
+
+            var current = LocationMongoId(locationId);
+            if (!string.IsNullOrEmpty(current) && questLocation.Equals(current, StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            // variants of the same map share quests with their base folder
+            var baseId = LocationMongoId(BaseFolder(locationId));
+            if (!string.IsNullOrEmpty(baseId) && questLocation.Equals(baseId, StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            // day and night factory are the same building
+            if (locationId.StartsWith("factory4", StringComparison.OrdinalIgnoreCase))
+            {
+                var day = LocationMongoId("factory4_day");
+                var night = LocationMongoId("factory4_night");
+
+                if ((!string.IsNullOrEmpty(day) && questLocation.Equals(day, StringComparison.OrdinalIgnoreCase)) ||
+                    (!string.IsNullOrEmpty(night) && questLocation.Equals(night, StringComparison.OrdinalIgnoreCase)))
+                    return true;
+            }
+
+            // if we could not read the location data at all, do not hide anything
+            return string.IsNullOrEmpty(current);
+        }
+
+        // quest objectives nest: a CounterCreator holds the real conditions, which is where the
+        // Location condition lives. walk down into it or the map test never sees anything.
+        private static void CollectCondition(Condition condition, QuestEntry candidate)
+        {
+            if (condition == null) return;
+
+            var multiple = condition.TryCast<ConditionMultipleTargets>();
+            if (multiple != null && multiple.target != null)
+            {
+                var need = (int)condition.value;
+
+                for (var t = 0; t < multiple.target.Length; t++)
+                {
+                    var id = multiple.target[t];
+                    if (string.IsNullOrEmpty(id)) continue;
+
+                    candidate.Ids.Add(id);
+                    candidate.Needs.Add(new QuestNeed { Id = id, Amount = need });
+                }
+            }
+
+            var locationCondition = condition.TryCast<ConditionLocation>();
+            if (locationCondition != null && locationCondition.target != null)
+            {
+                for (var t = 0; t < locationCondition.target.Length; t++)
+                {
+                    var id = locationCondition.target[t];
+                    if (!string.IsNullOrEmpty(id) && !candidate.Locations.Contains(id))
+                        candidate.Locations.Add(id);
+                }
+            }
+
+            CollectZoneIds(condition.TryCast<ConditionZone>(), candidate.Zones);
+            CollectZoneIds(condition.TryCast<ConditionInZone>(), candidate.Zones);
+
+            var visit = condition.TryCast<ConditionVisitPlace>();
+            if (visit != null && !string.IsNullOrEmpty(visit.target) && !candidate.Zones.Contains(visit.target))
+                candidate.Zones.Add(visit.target);
+
+            var counter = condition.TryCast<ConditionCounterCreator>();
+            if (counter != null)
+            {
+                try
+                {
+                    var nested = counter.Conditions;
+                    if (nested != null)
+                    {
+                        var enumerator = nested.GetEnumerator();
+                        while (enumerator.MoveNext()) CollectCondition(enumerator.Current, candidate);
+                    }
+                }
+                catch
+                {
+                    // nested conditions unreadable
+                }
+            }
+        }
+
+        private sealed class QuestEntry
+        {
+            public string Name;
+            public string Status;
+            public string Location;
+            public bool IsAny;
+            public List<string> Ids;
+            public List<string> Zones;
+            public List<string> Locations;
+            public List<QuestNeed> Needs;
+        }
+
+        private sealed class QuestNeed
+        {
+            public string Id;
+            public int Amount;
+        }
+
+        // what the player is carrying, by template id. equipment covers pockets, rig and
+        // backpack; quest items live in their own container and count too.
+        private static Dictionary<string, int> CountCarried(Profile profile)
+        {
+            var counts = new Dictionary<string, int>();
+
+            if (profile == null) return counts;
+
+            try
+            {
+                var inventory = profile.Inventory;
+                if (inventory == null) return counts;
+
+                CountInto(inventory.Equipment, counts);
+                CountInto(inventory.QuestRaidItems, counts);
+            }
+            catch
+            {
+                // inventory mid change
+            }
+
+            return counts;
+        }
+
+        private static void CountInto(EFT.InventoryLogic.Item root, Dictionary<string, int> counts)
+        {
+            if (root == null) return;
+
+            try
+            {
+                var items = EFT.InventoryLogic.ItemExtensions.GetAllItems(root);
+                if (items == null) return;
+
+                var enumerator = items.GetEnumerator();
+                while (enumerator.MoveNext())
+                {
+                    var child = enumerator.Current;
+                    if (child == null) continue;
+
+                    var id = child.StringTemplateId;
+                    if (string.IsNullOrEmpty(id)) continue;
+
+                    counts.TryGetValue(id, out var count);
+                    counts[id] = count + 1;
+                }
+            }
+            catch
+            {
+                // container not readable
+            }
+        }
+        private static void CollectZoneIds(ConditionZone zone, List<string> into)
+        {
+            if (zone == null || zone.zoneIds == null) return;
+
+            for (var i = 0; i < zone.zoneIds.Length; i++)
+            {
+                var id = zone.zoneIds[i];
+                if (!string.IsNullOrEmpty(id) && !into.Contains(id)) into.Add(id);
+            }
+        }
+
+        private static void CollectZoneIds(ConditionInZone zone, List<string> into)
+        {
+            if (zone == null || zone.zoneIds == null) return;
+
+            for (var i = 0; i < zone.zoneIds.Length; i++)
+            {
+                var id = zone.zoneIds[i];
+                if (!string.IsNullOrEmpty(id) && !into.Contains(id)) into.Add(id);
+            }
+        }
+
+        private static void AppendZone(StringBuilder sb, ref bool first, Vector3 position,
+            string id, Dictionary<string, string> zoneNames)
+        {
+            if (string.IsNullOrEmpty(id)) return;
+            if (!zoneNames.TryGetValue(id, out var label)) return;
+
+            if (!first) sb.Append(',');
+            first = false;
+
+            sb.Append("{\"x\":").Append(Num(position.x));
+            sb.Append(",\"z\":").Append(Num(position.z));
+            sb.Append(",\"n\":\"").Append(JsonEscape(label)).Append('"');
+            sb.Append('}');
+        }
+
+        private static string QuestDisplayName(Quest quest)
+        {
+            try
+            {
+                var name = quest.Name;
+                if (!string.IsNullOrEmpty(name)) return name;
+
+                var template = quest.Template;
+                return template != null ? template.Name : "Quest";
+            }
+            catch
+            {
+                return "Quest";
+            }
         }
 
         private static bool IsTransitPlaceholder(string value)

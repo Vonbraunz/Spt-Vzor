@@ -13,6 +13,12 @@ let image = null;
 let baseLayer = null;
 let baseImage = null;
 let showStack = true;
+let showQuestLoot = true;
+let showQuestZones = true;
+let infoOpen = false;
+let showStory = false;
+let infoTab = "quests";
+let lastInfoRender = 0;
 let mapFailed = false;
 
 let cal = { rotation: 0, scale: 1, offsetX: 0, offsetY: 0, flipX: 1, flipY: 1 };
@@ -228,6 +234,9 @@ async function poll() {
     const r = await fetch("/state", { cache: "no-store" });
     state = await r.json();
 
+    // belt and braces: the hideout is not a raid, even if an older plugin build says it is
+    if (state.inRaid && /^hideout$/i.test(state.map || "")) state.inRaid = false;
+
     if (!state.inRaid) {
       setStatus("waiting for raid", "dim");
     } else {
@@ -253,10 +262,18 @@ async function poll() {
   // to have settled, and only that once
   if (state.inRaid && !wasInRaid) {
     wasInRaid = true;
+    raidEndedAt = 0;
     scheduleLootRefresh();
-  } else if (!state.inRaid) {
+  } else if (!state.inRaid && wasInRaid) {
+    // raid just ended. drop the map so the last thing you saw is not still sitting there
+    // pretending to be live, and show the end notice for ten seconds.
     wasInRaid = false;
+    raidEndedAt = performance.now();
+    clearMap();
   }
+
+  updateWaitingOverlay();
+  renderInfo(false);
 
   updateCoords();
   draw();
@@ -387,6 +404,80 @@ function draw() {
     ctx.fillStyle = "#d9bcff";
     ctx.fillText(label, s.x, s.y - 11);
     ctx.textAlign = "left";
+  }
+
+  // quest items lying on the floor and quest zones, both toggleable
+  if (state.quest) {
+    if (showQuestLoot) {
+      for (const q of (state.quest.loot || [])) {
+        const s = project(q.x, q.z);
+
+        ctx.beginPath();
+        ctx.moveTo(s.x, s.y - 6);
+        ctx.lineTo(s.x + 6, s.y);
+        ctx.lineTo(s.x, s.y + 6);
+        ctx.lineTo(s.x - 6, s.y);
+        ctx.closePath();
+        ctx.fillStyle = "#ffb14e";
+        ctx.fill();
+        ctx.strokeStyle = "#0b0e12";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        if (view.zoom > 1.4) {
+          ctx.font = "10px Segoe UI, sans-serif";
+          ctx.textAlign = "left";
+          ctx.lineWidth = 3;
+          ctx.strokeStyle = "#0b0e12cc";
+          ctx.strokeText(q.n, s.x + 8, s.y + 4);
+          ctx.fillStyle = "#ffcf8a";
+          ctx.fillText(q.n, s.x + 8, s.y + 4);
+        }
+      }
+    }
+
+    if (showQuestLoot) {
+      // containers that hold something an active quest wants. square, so it reads as "a box"
+      for (const box of (state.quest.containers || [])) {
+        const s = project(box.x, box.z);
+
+        ctx.strokeStyle = "#ffb14e";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(s.x - 6, s.y - 6, 12, 12);
+
+        if (view.zoom > 1.2) {
+          ctx.font = "9px Segoe UI, sans-serif";
+          ctx.textAlign = "center";
+          ctx.lineWidth = 3;
+          ctx.strokeStyle = "#0b0e12cc";
+          ctx.strokeText(box.n, s.x, s.y + 18);
+          ctx.fillStyle = "#ffcf8a";
+          ctx.fillText(box.n, s.x, s.y + 18);
+          ctx.textAlign = "left";
+        }
+      }
+    }
+
+    if (showQuestZones) {
+      for (const z of (state.quest.zones || [])) {
+        const s = project(z.x, z.z);
+
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, 9, 0, Math.PI * 2);
+        ctx.strokeStyle = "#b388ff";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        ctx.font = "10px Segoe UI, sans-serif";
+        ctx.textAlign = "center";
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = "#0b0e12cc";
+        ctx.strokeText(z.n, s.x, s.y - 13);
+        ctx.fillStyle = "#d9bcff";
+        ctx.fillText(z.n, s.x, s.y - 13);
+        ctx.textAlign = "left";
+      }
+    }
   }
 
   // bodies. anything that was alive and then was not, marked where we last saw it. a plain
@@ -1113,6 +1204,7 @@ async function checkVersion() {
 let lootOpen = false;
 let lootRefreshTimer = null;
 let wasInRaid = false;
+let raidEndedAt = 0;
 let lootItems = [];
 let selectedLoot = null;
 
@@ -1202,6 +1294,43 @@ function renderLoot() {
   rows.innerHTML = html;
 }
 
+function clearMap() {
+  mapId = null;
+  mapCfg = null;
+  currentLayer = null;
+  image = null;
+  baseLayer = null;
+  baseImage = null;
+  labels = [];
+  samples = [];
+  selectedLoot = null;
+
+  const name = document.getElementById("mapname");
+  if (name) name.textContent = "no raid";
+
+  const floor = document.getElementById("floor");
+  if (floor) floor.textContent = "";
+}
+
+function updateWaitingOverlay() {
+  const el = document.getElementById("waiting");
+  if (!el) return;
+
+  if (state.inRaid) {
+    el.classList.remove("show");
+    return;
+  }
+
+  const ended = raidEndedAt > 0 && performance.now() - raidEndedAt < 10000;
+  const label = document.getElementById("waitingText");
+  const dots = el.querySelector(".dots");
+
+  if (label) label.textContent = ended ? "Raid Ended" : "waiting for raid";
+  if (dots) dots.style.display = ended ? "none" : "";
+
+  el.classList.add("show");
+}
+
 function scheduleLootRefresh() {
   if (lootRefreshTimer) clearTimeout(lootRefreshTimer);
 
@@ -1249,6 +1378,139 @@ function bindLoot() {
   });
 }
 
+/* ---------- quests and contacts ---------- */
+
+function setInfoOpen(open, tab) {
+  if (tab) infoTab = tab;
+  infoOpen = open;
+
+  document.getElementById("infopanel").classList.toggle("hidden", !open);
+  if (open) renderInfo(true);
+}
+
+function renderInfo(force) {
+  if (!infoOpen) return;
+
+  const now = performance.now();
+  if (!force && now - lastInfoRender < 700) return;
+  lastInfoRender = now;
+
+  const onQuests = infoTab === "quests";
+
+  document.getElementById("tabquests").classList.toggle("active", onQuests);
+  document.getElementById("tabcontacts").classList.toggle("active", !onQuests);
+
+  const questHost = document.getElementById("questbody");
+  const contactHost = document.getElementById("contactsbody");
+
+  questHost.classList.toggle("hidden", !onQuests);
+  contactHost.classList.toggle("hidden", onQuests);
+
+  if (onQuests) renderQuests(questHost);
+  else renderContacts(contactHost);
+}
+
+function renderQuests(host) {
+  const all = (state.quest && state.quest.quests) || [];
+  const quests = showStory ? all : all.filter(q => !q.story);
+  document.getElementById("infocount").textContent = quests.length + " active";
+
+  if (quests.length === 0) {
+    host.innerHTML = '<div class="dim">no active quests</div>';
+    return;
+  }
+
+  let html = "";
+
+  for (const quest of quests) {
+    html += '<div class="quest">' +
+      '<div class="qname">' + escapeHtml(quest.n) + '</div>' +
+      '<div class="qstatus">' + escapeHtml(quest.s) + '</div>';
+
+    if (quest.i && quest.i.length) {
+      html += '<div class="qitems">' + quest.i.map(escapeHtml).join(" &middot; ") + '</div>';
+    }
+
+    html += '</div>';
+  }
+
+  host.innerHTML = html;
+}
+
+function renderContacts(host) {
+  // scavs are everywhere and individually worthless. this panel is for the things that matter:
+  // players, bosses, their followers, raiders and rogues.
+  const players = (state.players || []).filter(p => !p.me && roleColor(p.role, p.side) !== "#d6d6d6");
+  players.sort((a, b) => (a.dist || 0) - (b.dist || 0));
+
+  document.getElementById("infocount").textContent = players.length + " contacts";
+
+  let html = '<div class="qrow head"><span class="name">contact</span>' +
+    '<span class="kind">type</span><span class="dist">dist</span></div>';
+
+  for (const p of players) {
+    let arrow = "";
+    if (typeof p.y === "number" && typeof state.y === "number") {
+      const dy = p.y - state.y;
+      if (Math.abs(dy) > 1.2) arrow = dy > 0 ? " \u25B2" : " \u25BC";
+    }
+
+    const type = p.ai ? (p.role || "ai") : "player";
+
+    html += '<div class="qrow" data-x="' + p.x + '" data-z="' + p.z + '">' +
+      '<span class="name">' + escapeHtml(contactLabel(p)) + '</span>' +
+      '<span class="kind">' + escapeHtml(type) + '</span>' +
+      '<span class="dist">' + Math.round(p.dist || 0) + 'm' + arrow + '</span>' +
+      '</div>';
+  }
+
+  host.innerHTML = html;
+}
+
+function bindInfo() {
+  document.getElementById("questsbtn").addEventListener("click", () => setInfoOpen(true, "quests"));
+  document.getElementById("contactsbtn").addEventListener("click", () => setInfoOpen(true, "contacts"));
+  document.getElementById("infoclose").addEventListener("click", () => setInfoOpen(false));
+
+  document.getElementById("storyq").addEventListener("change", e => {
+    showStory = e.target.checked;
+    try { localStorage.setItem("vzor.storyq", showStory ? "1" : "0"); } catch (err) { }
+    renderInfo(true);
+  });
+
+  document.getElementById("tabquests").addEventListener("click", () => {
+    infoTab = "quests";
+    renderInfo(true);
+  });
+
+  document.getElementById("tabcontacts").addEventListener("click", () => {
+    infoTab = "contacts";
+    renderInfo(true);
+  });
+
+  document.getElementById("contactsbody").addEventListener("click", e => {
+    const row = e.target.closest(".qrow[data-x]");
+    if (!row || !currentLayer) return;
+
+    const q = worldToImage(parseFloat(row.dataset.x), parseFloat(row.dataset.z), currentLayer);
+    view.x = q.x;
+    view.y = q.y;
+    draw();
+  });
+
+  document.getElementById("qitems").addEventListener("change", e => {
+    showQuestLoot = e.target.checked;
+    try { localStorage.setItem("vzor.qitems", showQuestLoot ? "1" : "0"); } catch (err) { }
+    draw();
+  });
+
+  document.getElementById("qzones").addEventListener("change", e => {
+    showQuestZones = e.target.checked;
+    try { localStorage.setItem("vzor.qzones", showQuestZones ? "1" : "0"); } catch (err) { }
+    draw();
+  });
+}
+
 /* ---------- boot ---------- */
 
 try { showNames = localStorage.getItem("vzor.names") !== "0"; } catch (e) { }
@@ -1260,11 +1522,21 @@ document.getElementById("contacts").checked = showContacts;
 try { showStack = localStorage.getItem("vzor.stack") !== "0"; } catch (e) { }
 document.getElementById("stack").checked = showStack;
 
+try { showStory = localStorage.getItem("vzor.storyq") === "1"; } catch (e) { }
+document.getElementById("storyq").checked = showStory;
+
+try { showQuestLoot = localStorage.getItem("vzor.qitems") !== "0"; } catch (e) { }
+document.getElementById("qitems").checked = showQuestLoot;
+
+try { showQuestZones = localStorage.getItem("vzor.qzones") !== "0"; } catch (e) { }
+document.getElementById("qzones").checked = showQuestZones;
+
 try { follow = localStorage.getItem("vzor.follow") !== "0"; } catch (e) { }
 setFollow(follow);
 
 bindCalibration();
 bindLoot();
+bindInfo();
 resize();
 updateSampleUi();
 checkVersion();

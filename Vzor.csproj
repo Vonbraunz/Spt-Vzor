@@ -27,6 +27,10 @@
   </ItemGroup>
 
   <ItemGroup Label="BepInEx 6 IL2CPP">
+    <Reference Include="Diz.Binding">
+      <HintPath>$(GameDir)\BepInEx\interop\Diz.Binding.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <Reference Include="BepInEx.Core">
       <HintPath>$(GameDir)\BepInEx\core\BepInEx.Core.dll</HintPath>
       <Private>false</Private>

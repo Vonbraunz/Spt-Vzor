@@ -8,6 +8,8 @@
 <body>
 <canvas id="map"></canvas>
 
+<div id="waiting"><span id="waitingText">waiting for raid</span><span class="dots"><i>.</i><i>.</i><i>.</i></span></div>
+
 <div id="hud">
   <div class="row title">
     <span id="mapname">no raid</span>
@@ -20,6 +22,8 @@
 <div id="topbar">
   <button id="follow">follow: on</button>
   <button id="loot">loot table</button>
+  <button id="questsbtn">quests</button>
+  <button id="contactsbtn">contacts</button>
   <button id="alignment">alignment</button>
 </div>
 
@@ -65,6 +69,8 @@
       <label class="check"><input type="checkbox" id="names" checked> labels</label>
       <label class="check"><input type="checkbox" id="contacts" checked> contact text</label>
       <label class="check"><input type="checkbox" id="stack" checked> stack floors</label>
+      <label class="check"><input type="checkbox" id="qitems" checked> quest items</label>
+      <label class="check"><input type="checkbox" id="qzones" checked> quest zones</label>
     </div>
 
     <div class="row">
@@ -128,7 +134,20 @@
   <div id="lootrows"></div>
 </div>
 
-<script src="/app.js"></script>
 
+<div id="infopanel" class="hidden">
+  <div class="row head">
+    <button class="tab" id="tabquests">quests</button>
+    <button class="tab" id="tabcontacts">contacts</button>
+    <span id="infocount" class="dim small"></span>
+    <label class="check small"><input type="checkbox" id="storyq"> story</label>
+    <button id="infoclose">close</button>
+  </div>
+
+  <div id="questbody"></div>
+  <div id="contactsbody" class="hidden"></div>
+</div>
+
+<script src="/app.js"></script>
 </body>
 </html>

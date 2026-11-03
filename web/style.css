@@ -10,9 +10,11 @@
   border-radius: 6px;
   padding: 6px 8px;
   backdrop-filter: blur(4px);
+  flex-wrap: nowrap;
 }
 
 #topbar button {
+  white-space: nowrap;
   background: #1e2731;
   color: #dfe6ee;
   border: 1px solid #33404d;
@@ -160,3 +162,93 @@ html, body {
 .lootrow .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lootrow .price { text-align: right; color: #ffd23b; font-family: Consolas, monospace; }
 .lootrow .dist { text-align: right; color: #7e8c9b; font-family: Consolas, monospace; }
+#waiting {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  font-size: 22px;
+  color: #c9d4e0;
+  text-shadow: 0 1px 8px #000, 0 0 2px #000;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+#waiting.show { opacity: 1; }
+
+#waiting .dots {
+  display: inline-flex;
+  width: 18px;
+  justify-content: flex-start;
+}
+
+#waiting .dots i {
+  font-style: normal;
+  opacity: 0;
+  animation: waitingDots 1.4s infinite;
+}
+
+#waiting .dots i:nth-child(2) { animation-delay: 0.2s; }
+#waiting .dots i:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes waitingDots {
+  0%, 20% { opacity: 0; }
+  30%, 80% { opacity: 1; }
+  100% { opacity: 0; }
+}
+#infopanel {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  width: 340px;
+  max-height: 50vh;
+  background: #141a21ee;
+  border: 1px solid #2a333d;
+  border-radius: 6px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  backdrop-filter: blur(4px);
+}
+
+#infopanel.hidden { display: none; }
+
+#infopanel .tab {
+  background: #1e2731;
+  color: #9fb0c2;
+  border: 1px solid #33404d;
+  border-radius: 4px;
+  padding: 2px 9px;
+  cursor: pointer;
+  font-size: 11px;
+}
+
+#infopanel .tab.active { color: #e6eef7; border-color: #4f8cff; }
+
+#questbody, #contactsbody { overflow: auto; font-size: 11px; }
+#questbody.hidden, #contactsbody.hidden { display: none; }
+
+.quest { padding: 4px 2px; border-bottom: 1px solid #1e2731; }
+.quest .qname { color: #e6eef7; }
+.quest .qstatus { color: #7e8c9b; font-size: 10px; }
+.quest .qitems { color: #ffd9a8; font-size: 10px; margin-top: 2px; }
+
+.qrow {
+  display: grid;
+  grid-template-columns: 1fr 92px 46px;
+  gap: 6px;
+  padding: 2px 4px;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.qrow:hover { background: #1e2731; }
+.qrow .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.qrow .kind { color: #9fb0c2; font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.qrow .dist { text-align: right; color: #7e8c9b; font-family: Consolas, monospace; }
+.qrow.head { cursor: default; color: #7e8c9b; text-transform: uppercase; font-size: 10px; }
+.qrow.head:hover { background: transparent; }
