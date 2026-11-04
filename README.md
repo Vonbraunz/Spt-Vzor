@@ -42,14 +42,15 @@ A live map of the current raid in your browser, served by the plugin on loopback
 
 - Your position and heading, every alive body colour coded by faction, with name and distance, and a chevron when they are above or below you.
 - Bodies that stop existing (killed and removed, or extracted) leave a white X where they were last seen.
+- **Raid found** banner: a pulsing "Raid Found, Loading..." across the map while a raid exists but no layer has reached the canvas yet, with the location id underneath. It clears the moment the art draws.
 - Extracts as diamonds, filled when open. Transits as squares, labelled with the destination.
-- Map art for every playable location. Floors are picked from your height and stacked over the ground map, with the base dimmed so the floor you are on stands out.
+- Map art for every playable location. Floors are picked from building footprints first and from height when exactly one layer claims it, stacked over the ground map with the base dimmed so the floor you are on stands out.
 - Place names from the map config, drawn behind the live data.
 - **Loot table**: every loose item in the raid with name, price and distance, filterable by category and searchable by name, sorted by price, name or distance. Click a row to mark it on the map. Refreshes every 30 seconds while the raid lasts.
 - **Quest markers**: quest items on the floor, containers holding them, and quest zones, each behind a toggle.
 - **Quest panel**: active quests for this map only, with the items you are still short of.
 - **Contacts panel**: players, bosses, followers, raiders, rogues and cultists, sorted by distance, click to centre.
-- Point and click calibration: stand somewhere, press `P`, then click the art where you are. Three or more spread out points solve rotation, scale, offset and mirroring, and the residual is shown in pixels. Each map's fit is saved.
+- Point and click calibration: stand somewhere, press `P`, then click the art where you are. Three or more spread out points solve an anchored fit first (rotation comes from the map config, so the art stretches between your pins without warping), then fall back to independent axis scaling, then to rotation plus uniform scale. The residual and the model used are shown in pixels, and fits that would shear the art are rejected. Each map's fit is saved in browser storage as well as on disk.
 - `follow` keeps the view on you. Dragging releases it.
 - The page and its assets live in `BepInEx\plugins\Vzor\web`, so they can be edited and reloaded without restarting the game: the plugin serves `/version` and the page reloads itself when `app.js` changes.
 

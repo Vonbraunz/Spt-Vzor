@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.2
+
+- **Raid found banner.** The browser map pulses "Raid Found, Loading..." across the screen while a raid exists but no layer has reached the canvas yet, with the location id underneath. It clears as soon as the art draws, and gives up after twelve seconds so an unrenderable location cannot pulse forever. This also replaces the silent blank canvas on a location with no art folder.
+- **Calibration survives a reload.** Fits are written to browser storage as well as to disk, because the server's calibration file only had room for rotation, scale and offsets and was silently dropping the anchored matrix. The disk format now carries the extra six numbers too.
+- Fixed the overlay's hidden state never applying: the stylesheet has no global `.hidden`, every panel scopes it to its own id, and I had left that out.
+
 ## 0.7.1
 
 - **Loot table keeps up with the raid.** The browser map's loot list now refreshes every 30 seconds for as long as the raid lasts, instead of taking one snapshot two minutes in and never updating. The poll stops when the raid ends.

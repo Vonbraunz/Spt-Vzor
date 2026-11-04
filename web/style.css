@@ -252,3 +252,39 @@ html, body {
 .qrow .dist { text-align: right; color: #7e8c9b; font-family: Consolas, monospace; }
 .qrow.head { cursor: default; color: #7e8c9b; text-transform: uppercase; font-size: 10px; }
 .qrow.head:hover { background: transparent; }
+/* shown when a raid exists but we have no art for its location. big, slow pulse, no
+   pointer events so it never eats a click or a drag. */
+#loadflash.hidden { display: none; }
+
+#loadflash {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 40;
+  text-align: center;
+}
+
+#loadflash .big {
+  font-size: 44px;
+  font-weight: 700;
+  letter-spacing: 6px;
+  color: #dfeaf5;
+  text-shadow: 0 0 18px #46b3ff88, 0 0 70px #46b3ff44;
+  animation: loadflash 1.2s ease-in-out infinite;
+}
+
+#loadflash .small {
+  margin-top: 12px;
+  font-size: 13px;
+  letter-spacing: 3px;
+  color: #8fa3b8;
+}
+
+@keyframes loadflash {
+  0%, 100% { opacity: 0.2; }
+  50% { opacity: 1; }
+}

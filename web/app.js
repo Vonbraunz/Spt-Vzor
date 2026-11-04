@@ -21,6 +21,11 @@ let infoTab = "quests";
 let lastInfoRender = 0;
 let mapFailed = false;
 
+// set by the draw itself, so the loading message goes away when something actually made it to
+// the canvas rather than when a set of conditions we guessed at happens to agree
+let layerPainted = false;
+let raidSeenAt = 0;
+
 let cal = { rotation: 0, scale: 1, offsetX: 0, offsetY: 0, flipX: 1, flipY: 1 };
 let view = { zoom: 1, x: 0, y: 0 };
 let saveTimer = null;
@@ -149,6 +154,7 @@ function project(x, z) {
 /* ---------- map loading ---------- */
 
 async function loadMap(id) {
+  layerPainted = false;
   mapId = id;
   mapFailed = false;
   selectedLoot = null;
@@ -268,6 +274,33 @@ function fitView() {
 
 /* ---------- state polling ---------- */
 
+// the raid is real but we have no art for its location, so say so loudly instead of leaving
+// a blank canvas with a tiny status line
+function updateLoadFlash() {
+  const el = document.getElementById("loadflash");
+  if (!el) return;
+
+  if (!state.inRaid) {
+    raidSeenAt = 0;
+    el.classList.add("hidden");
+    return;
+  }
+
+  if (!raidSeenAt) raidSeenAt = performance.now();
+
+  // the draw sets the flag, so this clears the moment a layer reaches the canvas. the age
+  // fallback exists so a map we genuinely cannot draw does not pulse forever.
+  const tooLong = performance.now() - raidSeenAt > 12000;
+  const show = !layerPainted && !tooLong;
+
+  el.classList.toggle("hidden", !show);
+
+  if (show) {
+    const id = document.getElementById("loadflashid");
+    if (id) id.textContent = state.map || "unknown location";
+  }
+}
+
 async function poll() {
   try {
     const r = await fetch("/state", { cache: "no-store" });
@@ -290,6 +323,8 @@ async function poll() {
   } catch (e) {
     setStatus("not connected", "warn");
   }
+
+  updateLoadFlash();
 
   if (follow && state.inRaid && currentLayer && typeof state.x === "number") {
     const p = worldToImage(state.x, state.z, currentLayer);
@@ -628,6 +663,7 @@ function drawImageLayer(img, layer, alpha, dim) {
 
   ctx.globalAlpha = alpha;
   ctx.drawImage(img, 0, 0, layer.width, layer.height);
+  if (layer === currentLayer) layerPainted = true;
 
   // darken the base with an explicit pass. canvas filter on a drawimage turned out to be a no
   // op here, and fading both layers is what made them mud in the first place.
@@ -777,10 +813,19 @@ function roleColor(role, side) {
 async function loadCalibration() {
   cal = defaultCal();
 
+  // browser copy first. the server side file only carries rotation, scale and offsets, so an
+  // anchored or axis matrix cannot survive the round trip through it, and this one can.
+  try {
+    const raw = localStorage.getItem("vzor.cal.v1." + mapId);
+    if (raw) cal = Object.assign(cal, JSON.parse(raw));
+  } catch (e) {
+    // unreadable, defaults are fine
+  }
+
   try {
     const r = await fetch("/calibration", { cache: "no-store" });
     const all = await r.json();
-    if (all[mapId]) cal = Object.assign(cal, all[mapId]);
+    if (all[mapId] && !(cal && cal.affine)) cal = Object.assign(cal, all[mapId]);
   } catch (e) {
     // no saved alignment, defaults are fine
   }
@@ -808,6 +853,13 @@ function scheduleSave() {
 
 async function saveCalibration() {
   if (!mapId) return;
+
+  // write the local copy first so a solve survives a refresh even if the post fails
+  try {
+    localStorage.setItem("vzor.cal.v1." + mapId, JSON.stringify(cal));
+  } catch (e) {
+    // private mode or full storage, the server copy still exists
+  }
 
   try {
     const r = await fetch("/calibration", {

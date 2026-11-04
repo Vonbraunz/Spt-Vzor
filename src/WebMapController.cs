@@ -460,6 +460,20 @@ namespace Vzor
                         sb.Append(",\"offsetY\":").Append(Num(parts[4]));
                         sb.Append(",\"flipX\":").Append(Num(parts[5]));
                         sb.Append(",\"flipY\":").Append(Num(parts[6]));
+
+                        // anchored and axis fits append their matrix after the fixed columns
+                        if (parts.Length >= 13)
+                        {
+                            sb.Append(",\"affine\":{");
+                            sb.Append("\"a\":").Append(Num(parts[7]));
+                            sb.Append(",\"b\":").Append(Num(parts[8]));
+                            sb.Append(",\"c\":").Append(Num(parts[9]));
+                            sb.Append(",\"d\":").Append(Num(parts[10]));
+                            sb.Append(",\"tx\":").Append(Num(parts[11]));
+                            sb.Append(",\"ty\":").Append(Num(parts[12]));
+                            sb.Append('}');
+                        }
+
                         sb.Append('}');
                     }
                 }
@@ -478,7 +492,7 @@ namespace Vzor
             var map = Regex.Match(body ?? string.Empty, "\"map\"\\s*:\\s*\"([^\"]*)\"").Groups[1].Value;
             if (string.IsNullOrEmpty(map)) return "{\"ok\":false}";
 
-            var values = new[]
+            var values = new List<float>
             {
                 Field(body, "rotation", 0f),
                 Field(body, "scale", 1f),
@@ -487,6 +501,20 @@ namespace Vzor
                 Field(body, "flipX", 1f),
                 Field(body, "flipY", 1f)
             };
+
+            // the browser solves an anchored or axis matrix that has nowhere to live in the fixed
+            // columns, so it rides along as six more numbers. older readers ignore the extras.
+            var affine = Regex.Match(body ?? string.Empty, "\"affine\"\\s*:\\s*\\{([^}]*)\\}");
+            if (affine.Success)
+            {
+                var block = affine.Groups[1].Value;
+                values.Add(Field(block, "a", 1f));
+                values.Add(Field(block, "b", 0f));
+                values.Add(Field(block, "c", 0f));
+                values.Add(Field(block, "d", 1f));
+                values.Add(Field(block, "tx", 0f));
+                values.Add(Field(block, "ty", 0f));
+            }
 
             var lines = new List<string>();
 
