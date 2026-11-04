@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.0
+
+- **Doors.** `Unlock Key` (numpad `.` by default) blanks the `KeyId` on every locked door within `Unlock Radius`, walks it out of the `Locked` state, and optionally pushes it open. Sealed doors are skipped, extraction doors are a separate type and never touched. Keycard and sliding doors inherit the same class and are covered.
+- Four new settings under `Doors`: `Unlock Key`, `Unlock Radius`, `Open Doors`, `Debug Logging`.
+- Keys are now decorative inside the radius. Stashes and keycards still work, they just stop being required.
+
 ## 0.6.0
 
 Feature release. Everything from the single 0.5.0 dump, plus the browser map growing up.

@@ -4,7 +4,7 @@ A BepInEx 6 plugin for the **IL2CPP** build of SPT 5.0 (EFT 1.2.0.47965, Unity 2
 
 Offline single-player only. There is no anti-cheat bypass, no injector, and nothing here is designed for live EFT.
 
-Config-driven. Two keys exist: `Insert` opens the in-game menu, and `Aim Key` (LeftControl by default) is the aimbot trigger. Everything can also be edited in `BepInEx\config\local.vzor.cfg`; changes apply about a second after saving.
+Config-driven. Three keys exist: `Insert` opens the in-game menu, `Aim Key` (LeftControl by default) is the aimbot trigger, and `Unlock Key` (numpad `.` by default) opens locked doors around you. Everything can also be edited in `BepInEx\config\local.vzor.cfg`; changes apply about a second after saving.
 
 ## Features
 
@@ -75,6 +75,19 @@ A live map of the current raid in your browser, served by the plugin on loopback
 | No Sway | Zeroes the breath effector's intensity | ADS still works |
 | No Malfunction | Clears jam, misfire, slide, feed and overheat flags on the weapon template | Applies per weapon type |
 | Instant Search | Marks contents as known and refreshes the container view | Ported from asler's SPT-LootInstantSearch, see credits |
+
+### Doors
+
+| Setting | What it does | Notes |
+|---|---|---|
+| Unlock Key | Unlocks every locked door within `Unlock Radius` | Numpad `.` by default |
+| Unlock Radius | Range in metres | 15 covers a dorm floor, 50 covers most of a building |
+| Open Doors | Pushes them open after unlocking | Off leaves them unlocked but shut |
+| Debug Logging | Logs each door with its key and state before and after | Use this when a door refuses to move |
+
+The key requirement on a door is a single `KeyId` string, so the unlocker blanks it and then walks the state machine out of `Locked`. Sealed doors are skipped because sealing is event state, not loot. Keycard doors and sliding doors inherit from the same class, so they are covered by the same pass. Extraction doors are a separate type and are never touched.
+
+This makes keys decorative while the radius covers the doors you care about. Your key stashes, marked room keys and keycards still work normally, they just stop being necessary.
 
 ## Requirements
 

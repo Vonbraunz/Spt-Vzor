@@ -15,7 +15,7 @@ namespace Vzor
     public class Plugin : BasePlugin
     {
         public const string Guid = "local.vzor";
-        public const string Version = "0.6.0";
+        public const string Version = "0.7.0";
 
         internal static ManualLogSource Logger;
         internal static ConfigFile File;
@@ -105,6 +105,10 @@ namespace Vzor
         internal static ConfigEntry<bool> QolNoRecoil;
         internal static ConfigEntry<bool> QolNoMalfunction;
         internal static ConfigEntry<bool> QolInstantSearch;
+        internal static ConfigEntry<KeyCode> DoorUnlockKey;
+        internal static ConfigEntry<float> DoorUnlockRadius;
+        internal static ConfigEntry<bool> DoorUnlockOpen;
+        internal static ConfigEntry<bool> DoorUnlockDebug;
         internal static ConfigEntry<bool> AimEnabled;
         internal static ConfigEntry<KeyCode> AimKey;
         internal static ConfigEntry<KeyCode> MenuKey;
@@ -337,6 +341,16 @@ namespace Vzor
             QolInstantSearch = Config.Bind("QoL", "Instant Search", false,
                 "mark container contents as already known and searched, so they are revealed on open. ported from asler's SPT-LootInstantSearch.");
 
+            DoorUnlockKey = Config.Bind("Doors", "Unlock Key", KeyCode.KeypadPeriod,
+                "tap this to unlock every locked door within range. numpad dot by default, because everything near the left hand is already busy.");
+            DoorUnlockRadius = Config.Bind("Doors", "Unlock Radius", 15f,
+                new ConfigDescription("metres around you. 15 covers a dorm floor, 50 covers most of a building.",
+                    new AcceptableValueRange<float>(1f, 100f)));
+            DoorUnlockOpen = Config.Bind("Doors", "Open Doors", true,
+                "push them open after unlocking. off leaves them unlocked but shut, which is quieter and less suspicious looking.");
+            DoorUnlockDebug = Config.Bind("Doors", "Debug Logging", false,
+                "log every door touched, with its key and state before and after. use this if a door refuses to move.");
+
             AimEnabled = Config.Bind("Aimbot", "Enabled", false,
                 "aim at the closest enemy inside the FOV while the aim key is held. aim only, no triggerbot.");
             AimKey = Config.Bind("Aimbot", "Aim Key", KeyCode.LeftControl,
@@ -412,6 +426,7 @@ namespace Vzor
             AddComponent<ChamsController>();
             AddComponent<LootEspController>();
             AddComponent<QolController>();
+            AddComponent<DoorController>();
             AddComponent<AimbotController>();
             AddComponent<MenuController>();
             AddComponent<WebMapController>();
