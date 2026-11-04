@@ -65,6 +65,10 @@ function defaultCal() {
 
 // art pixel -> image pixel, as a 2x2 matrix plus translation, matching the draw chain below
 function calMatrix(layer) {
+  // a solved affine from three or more points scales x and y independently, which a rotation
+  // plus one uniform scale cannot. if it exists it wins, until a slider is touched.
+  if (cal && cal.affine) return cal.affine;
+
   const cx = layer.width / 2;
   const cy = layer.height / 2;
   const t = (cal.rotation * Math.PI) / 180;
@@ -91,6 +95,20 @@ function calApply(m, p) {
 
 // inverse of the art transform, needed to turn a click into an art pixel
 function calInvert(q, layer) {
+  if (cal && cal.affine) {
+    const m = cal.affine;
+    const det = m.a * m.d - m.b * m.c;
+    if (Math.abs(det) < 1e-9) return { x: q.x, y: q.y };
+
+    const dx = q.x - m.tx;
+    const dy = q.y - m.ty;
+
+    return {
+      x: (m.d * dx - m.b * dy) / det,
+      y: (-m.c * dx + m.a * dy) / det
+    };
+  }
+
   const cx = layer.width / 2;
   const cy = layer.height / 2;
   const t = (cal.rotation * Math.PI) / 180;
@@ -195,6 +213,27 @@ function pickLayer(force) {
     }
   }
 
+  if (!chosen && state.inRaid && typeof state.y === "number")
+  {
+    // the boxes are building footprints, so anywhere the footprint misses (corridors, tunnels,
+    // the bottom of labs) used to leave us on the previous floor. if exactly one layer claims
+    // our height, trust it: that is unambiguous, and ambiguous heights still fall through.
+    let byHeight = null;
+    let ambiguous = false;
+
+    for (const layer of mapCfg.layers) {
+      let hit = false;
+      for (const b of (layer.gameBounds || [])) {
+        if (state.y >= b.Min.z && state.y <= b.Max.z) { hit = true; break; }
+      }
+      if (!hit) continue;
+      if (byHeight && byHeight.level !== layer.level) { ambiguous = true; break; }
+      byHeight = layer;
+    }
+
+    if (byHeight && !ambiguous) chosen = byHeight;
+  }
+
   if (!chosen)
   {
     // their floor bounds are boxes around buildings, not whole floors. standing in a corridor
@@ -258,8 +297,7 @@ async function poll() {
     view.y = p.y;
   }
 
-  // loot spawns over the first couple of minutes, so take one fresh snapshot late enough for it
-  // to have settled, and only that once
+  // loot spawns over the first couple of minutes, so the table poll runs while the raid lasts
   if (state.inRaid && !wasInRaid) {
     wasInRaid = true;
     raidEndedAt = 0;
@@ -269,6 +307,7 @@ async function poll() {
     // pretending to be live, and show the end notice for ten seconds.
     wasInRaid = false;
     raidEndedAt = performance.now();
+    stopLootRefresh();
     clearMap();
   }
 
@@ -577,19 +616,16 @@ function draw() {
 function drawImageLayer(img, layer, alpha, dim) {
   if (!img || !layer || !img.complete || img.naturalWidth === 0) return;
 
-  const cx = layer.width / 2;
-  const cy = layer.height / 2;
-  const t = (cal.rotation * Math.PI) / 180;
-
   ctx.save();
   ctx.translate(canvas.width / 2, canvas.height / 2);
   ctx.scale(view.zoom, view.zoom);
   ctx.translate(-view.x, -view.y);
-  ctx.translate(cx + cal.offsetX, cy + cal.offsetY);
-  ctx.rotate(t);
-  ctx.scale(cal.scale, cal.scale);
-  ctx.scale(cal.flipX, cal.flipY);
-  ctx.translate(-cx, -cy);
+
+  // one matrix covers both the solved affine and the slider built rotation/scale/offset.
+  // canvas order is column major: x' = a x + c y + e, y' = b x + d y + f
+  const m = calMatrix(layer);
+  ctx.transform(m.a, m.c, m.b, m.d, m.tx, m.ty);
+
   ctx.globalAlpha = alpha;
   ctx.drawImage(img, 0, 0, layer.width, layer.height);
 
@@ -851,6 +887,196 @@ let lastError = null;
 
 // least squares similarity fit, trying both the normal and mirrored model and keeping whichever
 // explains the points with less error. two points is enough, three is better, ten is cheating.
+// 3x3 linear solve, gaussian elimination with partial pivoting. null when the points are
+// collinear or duplicated, in which case there is no unique affine
+function solve3(m, b) {
+  for (let col = 0; col < 3; col++) {
+    let pivot = col;
+    for (let r = col + 1; r < 3; r++) {
+      if (Math.abs(m[r][col]) > Math.abs(m[pivot][col])) pivot = r;
+    }
+    if (Math.abs(m[pivot][col]) < 1e-9) return null;
+
+    if (pivot !== col) {
+      const tmp = m[col]; m[col] = m[pivot]; m[pivot] = tmp;
+      const tb = b[col]; b[col] = b[pivot]; b[pivot] = tb;
+    }
+
+    for (let r = 0; r < 3; r++) {
+      if (r === col) continue;
+      const f = m[r][col] / m[col][col];
+      for (let c = col; c < 3; c++) m[r][c] -= f * m[col][c];
+      b[r] -= f * b[col];
+    }
+  }
+
+  const out = [0, 0, 0];
+  for (let i = 0; i < 3; i++) {
+    if (Math.abs(m[i][i]) < 1e-9) return null;
+    out[i] = b[i] / m[i][i];
+  }
+  return out;
+}
+
+// general affine fit. unlike rotation plus one scale this allows a different scale per axis,
+// which is what the labs art needs, and it absorbs any shear the export introduced
+// generic gaussian solve for n unknowns, used by the anchored fit
+function solveN(m, b) {
+  const n = b.length;
+
+  for (let col = 0; col < n; col++) {
+    let pivot = col;
+    for (let r = col + 1; r < n; r++) {
+      if (Math.abs(m[r][col]) > Math.abs(m[pivot][col])) pivot = r;
+    }
+    if (Math.abs(m[pivot][col]) < 1e-9) return null;
+
+    if (pivot !== col) {
+      const tmp = m[col]; m[col] = m[pivot]; m[pivot] = tmp;
+      const tb = b[col]; b[col] = b[pivot]; b[pivot] = tb;
+    }
+
+    for (let r = 0; r < n; r++) {
+      if (r === col) continue;
+      const f = m[r][col] / m[col][col];
+      for (let c = col; c < n; c++) m[r][c] -= f * m[col][c];
+      b[r] -= f * b[col];
+    }
+  }
+
+  const out = new Array(n).fill(0);
+  for (let i = 0; i < n; i++) {
+    if (Math.abs(m[i][i]) < 1e-9) return null;
+    out[i] = b[i] / m[i][i];
+  }
+  return out;
+}
+
+// anchored fit. the map config already tells us the art rotation, so pinning two points is
+// enough: horizontal scale, vertical scale and translation are the only unknowns left. this
+// cannot shear or spin the art, it can only stretch it between the pins.
+function solveAnchored(pairs) {
+  if (!mapCfg || typeof mapCfg.rotation !== "number") return null;
+
+  const theta = (mapCfg.rotation * Math.PI) / 180;
+  const cosT = Math.cos(theta);
+  const sinT = Math.sin(theta);
+
+  const A = [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]];
+  const b = [0, 0, 0, 0];
+
+  for (const s of pairs) {
+    const rx = [cosT * s.p.x, -sinT * s.p.y, 1, 0];
+    const ry = [sinT * s.p.x, cosT * s.p.y, 0, 1];
+
+    for (let i = 0; i < 4; i++) {
+      for (let j = 0; j < 4; j++) A[i][j] += rx[i] * rx[j] + ry[i] * ry[j];
+      b[i] += rx[i] * s.q.x + ry[i] * s.q.y;
+    }
+  }
+
+  const u = solveN(A, b);
+  if (!u) return null;
+
+  const sx = u[0], sy = u[1], tx = u[2], ty = u[3];
+  if (Math.abs(sx) < 1e-4 || Math.abs(sy) < 1e-4) return null;
+
+  const a = cosT * sx, bb = -sinT * sy;
+  const c = sinT * sx, d = cosT * sy;
+
+  let err = 0;
+  for (const s of pairs) {
+    const ex = a * s.p.x + bb * s.p.y + tx - s.q.x;
+    const ey = c * s.p.x + d * s.p.y + ty - s.q.y;
+    err += ex * ex + ey * ey;
+  }
+
+  return {
+    a: a, b: bb, c: c, d: d, tx: tx, ty: ty,
+    sx: sx, sy: sy,
+    rotation: mapCfg.rotation,
+    scale: Math.sqrt(Math.abs(sx * sy)) || 1,
+    rms: Math.sqrt(err / pairs.length)
+  };
+}
+
+// rotation plus independent x and y scale, with the axes kept orthogonal. a free affine has
+// six degrees of freedom and will happily shear the map into a parallelogram when the points
+// are close to a line, which is what happened on labs: tiny residual, unusable art.
+function solveAxes(pairs) {
+  let mx = 0, my = 0, mqx = 0, mqy = 0;
+  for (const s of pairs) {
+    mx += s.p.x; my += s.p.y;
+    mqx += s.q.x; mqy += s.q.y;
+  }
+  mx /= pairs.length; my /= pairs.length;
+  mqx /= pairs.length; mqy /= pairs.length;
+
+  const ps = pairs.map(s => ({ x: s.p.x - mx, y: s.p.y - my }));
+  const qs = pairs.map(s => ({ x: s.q.x - mqx, y: s.q.y - mqy }));
+
+  // if the clicked art points sit on a line, one axis is unconstrained and any solver will
+  // invent a scale for it. refuse instead of drawing nonsense.
+  let sxx = 0, syy = 0, sxy = 0;
+  for (const p of ps) { sxx += p.x * p.x; syy += p.y * p.y; sxy += p.x * p.y; }
+  const trace = sxx + syy;
+  const det = sxx * syy - sxy * sxy;
+  if (trace < 1e-6 || det / (trace * trace) < 0.02) return null;
+
+  function fit(theta) {
+    const cos = Math.cos(theta);
+    const sin = Math.sin(theta);
+
+    let numX = 0, denX = 0, numY = 0, denY = 0;
+    for (let i = 0; i < ps.length; i++) {
+      const rx = cos * qs[i].x + sin * qs[i].y;
+      const ry = -sin * qs[i].x + cos * qs[i].y;
+      numX += rx * ps[i].x; denX += ps[i].x * ps[i].x;
+      numY += ry * ps[i].y; denY += ps[i].y * ps[i].y;
+    }
+
+    if (denX < 1e-6 || denY < 1e-6) return null;
+
+    const sx = numX / denX;
+    const sy = numY / denY;
+    if (Math.abs(sx) < 1e-4 || Math.abs(sy) < 1e-4) return null;
+
+    const a = cos * sx, b = -sin * sy;
+    const c = sin * sx, d = cos * sy;
+
+    let err = 0;
+    for (let i = 0; i < ps.length; i++) {
+      const ex = a * ps[i].x + b * ps[i].y - qs[i].x;
+      const ey = c * ps[i].x + d * ps[i].y - qs[i].y;
+      err += ex * ex + ey * ey;
+    }
+
+    return { a: a, b: b, c: c, d: d, sx: sx, sy: sy, theta: theta, rms: Math.sqrt(err / ps.length) };
+  }
+
+  let best = null;
+
+  // coarse sweep then a fine pass around the winner. one axis search, so this is cheap
+  for (let deg = 0; deg < 180; deg += 1) {
+    const f = fit((deg * Math.PI) / 180);
+    if (f && (!best || f.rms < best.rms)) best = f;
+  }
+
+  if (!best) return null;
+
+  for (let step = -1; step <= 1; step += 0.02) {
+    const f = fit(best.theta + (step * Math.PI) / 180);
+    if (f && f.rms < best.rms) best = f;
+  }
+
+  return {
+    a: best.a, b: best.b, c: best.c, d: best.d,
+    tx: mqx - (best.a * mx + best.b * my),
+    ty: mqy - (best.c * mx + best.d * my),
+    rms: best.rms
+  };
+}
+
 function solveSamples() {
   if (!currentLayer || samples.length < 2) return null;
 
@@ -858,6 +1084,33 @@ function solveSamples() {
     p: { x: s.u, y: s.v },
     q: worldToImage(s.x, s.z, currentLayer)
   }));
+
+  let affineFit = null;
+
+  // anchored is only meaningful with two or more pins, and it is the model we would rather
+  // trust: fixed rotation, so it stretches the art instead of warping it
+  let anchoredFit = pairs.length >= 2 ? solveAnchored(pairs) : null;
+
+  if (pairs.length >= 3) {
+    const affine = solveAxes(pairs);
+
+    if (affine) {
+      let error = 0;
+      for (const s of pairs) {
+        const ex = (affine.a * s.p.x + affine.b * s.p.y + affine.tx) - s.q.x;
+        const ey = (affine.c * s.p.x + affine.d * s.p.y + affine.ty) - s.q.y;
+        error += ex * ex + ey * ey;
+      }
+
+      const det = affine.a * affine.d - affine.b * affine.c;
+      affineFit = {
+        affine: affine,
+        rms: Math.sqrt(error / pairs.length),
+        rotation: Math.atan2(affine.c, affine.a) * 180 / Math.PI,
+        scale: Math.sqrt(Math.abs(det)) || 1
+      };
+    }
+  }
 
   const mp = { x: 0, y: 0 };
   const mq = { x: 0, y: 0 };
@@ -939,14 +1192,44 @@ function solveSamples() {
     flipY: best.flipped ? -1 : 1
   };
 
-  lastError = best.rms;
+  // pick whichever model explains the pins best. anchored wins ties because it is the most
+  // constrained, so it is the least likely to invent geometry that is not in the art
+  let model = "similarity";
+  let pick = { rms: best.rms, model: "similarity", matrix: null, rotation: rotation, scale: scale };
+
+  if (affineFit && affineFit.rms < pick.rms - 0.01) {
+    pick = { rms: affineFit.rms, model: "axis", matrix: affineFit, rotation: affineFit.rotation, scale: affineFit.scale };
+  }
+
+  if (anchoredFit && anchoredFit.rms <= pick.rms + 0.5) {
+    pick = { rms: anchoredFit.rms, model: "anchored", matrix: anchoredFit, rotation: anchoredFit.rotation, scale: anchoredFit.scale };
+  }
+
+  model = pick.model;
+  lastError = pick.rms;
+
+  if (pick.matrix) {
+    cal.affine = {
+      a: pick.matrix.a, b: pick.matrix.b,
+      c: pick.matrix.c, d: pick.matrix.d,
+      tx: pick.matrix.tx, ty: pick.matrix.ty
+    };
+    cal.rotation = pick.rotation;
+    cal.scale = pick.scale;
+  } else {
+    delete cal.affine;
+  }
+
   syncInputs();
   updateSampleUi();
   draw();
   scheduleSave();
 
   const note = samples.length < 3 ? " (add a third point)" : "";
-  setStatus("fit " + best.rms.toFixed(1) + "px" + (best.flipped ? " mirrored" : "") + note, "good");
+  const note2 = (pairs.length >= 3 && !affineFit) ? " (points nearly in a line)" : "";
+
+  setStatus("fit " + lastError.toFixed(1) + "px, " + model + ", " + samples.length + " points" +
+    (best.flipped && model === "similarity" ? " mirrored" : "") + note + note2, "good");
   return cal;
 }
 
@@ -982,6 +1265,8 @@ function bindCalibration() {
   const fy = document.getElementById("fy");
 
   function changed() {
+    // touching a slider means manual control again
+    if (cal.affine) delete cal.affine;
     cal.rotation = parseFloat(rot.value);
     cal.scale = parseFloat(scale.value);
     cal.offsetX = parseFloat(ox.value);
@@ -1002,6 +1287,7 @@ function bindCalibration() {
   fy.addEventListener("change", changed);
 
   function setRotation(degrees) {
+    if (cal.affine) delete cal.affine;
     let value = degrees;
     while (value > 180) value -= 360;
     while (value < -180) value += 360;
@@ -1331,13 +1617,23 @@ function updateWaitingOverlay() {
   el.classList.add("show");
 }
 
-function scheduleLootRefresh() {
-  if (lootRefreshTimer) clearTimeout(lootRefreshTimer);
+// loot keeps spawning for the first couple of minutes, so poll on a slow tick rather than taking
+// one late snapshot and hoping it caught everything
+const LOOT_REFRESH_MS = 30000;
 
-  lootRefreshTimer = setTimeout(() => {
-    lootRefreshTimer = null;
+function scheduleLootRefresh() {
+  stopLootRefresh();
+
+  lootRefreshTimer = setInterval(() => {
     if (lootOpen) fetchLoot(0);
-  }, 120000);
+  }, LOOT_REFRESH_MS);
+}
+
+function stopLootRefresh() {
+  if (lootRefreshTimer) {
+    clearInterval(lootRefreshTimer);
+    lootRefreshTimer = null;
+  }
 }
 
 function setLootOpen(open) {

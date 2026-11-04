@@ -45,7 +45,7 @@ A live map of the current raid in your browser, served by the plugin on loopback
 - Extracts as diamonds, filled when open. Transits as squares, labelled with the destination.
 - Map art for every playable location. Floors are picked from your height and stacked over the ground map, with the base dimmed so the floor you are on stands out.
 - Place names from the map config, drawn behind the live data.
-- **Loot table**: every loose item in the raid with name, price and distance, filterable by category and searchable by name, sorted by price, name or distance. Click a row to mark it on the map. Refreshes once, two minutes into the raid.
+- **Loot table**: every loose item in the raid with name, price and distance, filterable by category and searchable by name, sorted by price, name or distance. Click a row to mark it on the map. Refreshes every 30 seconds while the raid lasts.
 - **Quest markers**: quest items on the floor, containers holding them, and quest zones, each behind a toggle.
 - **Quest panel**: active quests for this map only, with the items you are still short of.
 - **Contacts panel**: players, bosses, followers, raiders, rogues and cultists, sorted by distance, click to centre.
@@ -148,7 +148,7 @@ The project references `Diz.Binding` from `BepInEx\interop`, because quest condi
 - **Prices are a snapshot.** The flea table comes from a community project and will drift. Missing entries fall back to the item template price, which is lower.
 - **Container contents counts** rely on `ItemExtensions.GetAllItems`. Nested grids are usually included, but treat the totals as approximate until you have compared a few against what you actually find.
 - **Body X marks include extractions.** A player who extracts also looks like "stopped existing", so you may get a mark at an exfil.
-- **Floor selection depends on their data.** Floors are chosen from the map's own bounding boxes and stick when you are between them, so a corridor can keep the last floor rather than switching.
+- **Floor selection depends on their data.** Floors are chosen from the map's own bounding boxes first, then from height when exactly one layer claims it. Ambiguous heights still keep the last floor rather than guessing.
 - **Fonts.** Cyrillic renders through Segoe UI. CJK nicknames may come out as blanks.
 
 ## Licences

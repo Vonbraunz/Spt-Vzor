@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.1
+
+- **Loot table keeps up with the raid.** The browser map's loot list now refreshes every 30 seconds for as long as the raid lasts, instead of taking one snapshot two minutes in and never updating. The poll stops when the raid ends.
+- **Floor selection falls back to height.** The map layers are picked from building footprints first, and when nothing matches, from height alone if exactly one layer claims it. Standing on the technical level of Labs at y -5 used to keep the previous floor because the footprint box missed.
+- **Calibration fits in stages.** An anchored fit from two or more pins comes first: the art rotation is taken from the map config, so only horizontal scale, vertical scale and offset are solved, which cannot shear or spin the art. Behind it, an axis fit allows independent x and y scale, and last the old rotation plus uniform scale. The most constrained model that explains the points wins, and pins that sit nearly on a line are rejected rather than producing a warped map.
+
 ## 0.7.0
 
 - **Doors.** `Unlock Key` (numpad `.` by default) blanks the `KeyId` on every locked door within `Unlock Radius`, walks it out of the `Locked` state, and optionally pushes it open. Sealed doors are skipped, extraction doors are a separate type and never touched. Keycard and sliding doors inherit the same class and are covered.
