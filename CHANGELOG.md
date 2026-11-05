@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.7.15
+
+- **The ten second beat is the web map quest build.** With the ESP off, `[timing] web map quest data` reports 397.9 ms on the first build and 67 to 74 ms on every one after, and the capture shows the matching 83 to 90 ms frame stalls at exactly ten second intervals. The `FindObjectsOfType` sweeps were not the cost, the quest walk was.
+- **Quest conditions are cached per raid.** Walking every started quest's condition tree does a pile of `TryCast`s per condition, and none of it changes until a quest starts or finishes. The results now live in a cached list, rebuilt when the started quest count changes or every thirty seconds, not six times a minute.
+- **The location set is built once, not per quest.** `CurrentLocationIds(locationId)` was being called inside the candidate loop, rebuilding a `HashSet` and doing dictionary lookups for every quest, and now it is hoisted and memoised.
+- **The build is phase timed.** `[timing] web map quest candidates / zones / filter / carried / json` appear individually when a phase goes over ten milliseconds, so the next capture says which part is still paying.
+
 ## 0.7.14
 
 - **The periodic hitch was a full container rebuild every ten seconds.** `ScanContainers` cleared its lists and then walked every interactable on the map on the main thread, building a bounds box per container. On Interchange that is the half second stall; in the hideout it is the 60 to 125 ms one. The walk now runs 200 entries per frame, so the list fills over a second or two at under a millisecond a frame, and the rebuild drops to once a minute after the first three passes.

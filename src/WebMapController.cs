@@ -103,6 +103,9 @@ namespace Vzor
                     _seen.Clear();
                     _dead.Clear();
 
+                    _questCandidates = null;
+                    _questCandidateCount = -1;
+
                     _containerQueue.Clear();
                     _containerParts.Clear();
                     _containerCursor = 0;
@@ -1002,57 +1005,77 @@ namespace Vzor
             }
         }
 
-        private string BuildQuestData(GameWorld world)
+        private List<QuestEntry> _questCandidates;
+        private int _questCandidateCount = -1;
+        private float _questCandidatesAt;
+
+        // walking every started quest's condition tree is cast heavy, and the answers do not change
+        // until a quest starts or finishes. the started count is enough of a signal for that, so
+        // the walk runs on change or every half minute, not six times a minute for a static list.
+        private List<QuestEntry> CollectCandidates(Profile profile)
         {
-            var locationId = SafeLocationId(world);
-            var profile = world.MainPlayer != null ? world.MainPlayer.Profile : null;
+            if (profile == null) return _questCandidates ?? new List<QuestEntry>();
+
+            var data = profile.QuestsData;
+            var started = 0;
+
+            if (data != null)
+            {
+                for (var i = 0; i < data.Count; i++)
+                {
+                    var entry = data[i];
+                    if (entry != null && entry.Status == EQuestStatus.Started) started++;
+                }
+            }
+
+            var now = UnityEngine.Time.unscaledTime;
+
+            if (_questCandidates != null && _questCandidateCount == started && now < _questCandidatesAt + 30f)
+                return _questCandidates;
+
             var candidates = new List<QuestEntry>();
 
-            if (profile != null)
+            if (data != null)
             {
                 try
                 {
-                    var data = profile.QuestsData;
-                    if (data != null)
+                    for (var i = 0; i < data.Count; i++)
                     {
-                        for (var i = 0; i < data.Count; i++)
+                        var entry = data[i];
+                        if (entry == null) continue;
+                        if (entry.Status != EQuestStatus.Started) continue;
+
+                        var quest = entry.Quest;
+                        if (quest == null) continue;
+
+                        var template = quest.Template;
+                        var questLocation = template != null ? template.LocationId : null;
+
+                        var candidate = new QuestEntry
                         {
-                            var entry = data[i];
-                            if (entry == null) continue;
-                            if (entry.Status != EQuestStatus.Started) continue;
+                            Name = QuestDisplayName(quest),
+                            Status = entry.Status.ToString(),
+                            Location = questLocation,
+                            IsAny = string.IsNullOrEmpty(questLocation) ||
+                                    questLocation.Equals("any", StringComparison.OrdinalIgnoreCase),
+                            IsStory = StoryQuestFlag(template != null ? template.Id : null) ?? false,
+                            Ids = new List<string>(),
+                            Zones = new List<string>(),
+                            Locations = new List<string>(),
+                            Needs = new List<QuestNeed>()
+                        };
 
-                            var quest = entry.Quest;
-                            if (quest == null) continue;
-
-                            var template = quest.Template;
-                            var questLocation = template != null ? template.LocationId : null;
-
-                            var candidate = new QuestEntry
+                        var conditions = quest.NecessaryConditions;
+                        if (conditions != null)
+                        {
+                            var enumerator = conditions.GetEnumerator();
+                            while (enumerator.MoveNext())
                             {
-                                Name = QuestDisplayName(quest),
-                                Status = entry.Status.ToString(),
-                                Location = questLocation,
-                                IsAny = string.IsNullOrEmpty(questLocation) ||
-                                        questLocation.Equals("any", StringComparison.OrdinalIgnoreCase),
-                                IsStory = StoryQuestFlag(template != null ? template.Id : null) ?? false,
-                                Ids = new List<string>(),
-                                Zones = new List<string>(),
-                                Locations = new List<string>(),
-                                Needs = new List<QuestNeed>()
-                            };
-
-                            var conditions = quest.NecessaryConditions;
-                            if (conditions != null)
-                            {
-                                var enumerator = conditions.GetEnumerator();
-                                while (enumerator.MoveNext())
-                                {
-                                    CollectCondition(enumerator.Current, candidate);
-                                }
+                                CollectCondition(enumerator.Current, candidate);
                             }
-
-                            candidates.Add(candidate);
                         }
+
+                        candidates.Add(candidate);
                     }
                 }
                 catch
@@ -1060,6 +1083,25 @@ namespace Vzor
                     // quest data mid update
                 }
             }
+
+            _questCandidates = candidates;
+            _questCandidateCount = started;
+            _questCandidatesAt = now;
+
+            return candidates;
+        }
+
+        private string BuildQuestData(GameWorld world)
+        {
+            var started = System.Diagnostics.Stopwatch.GetTimestamp();
+
+            var locationId = SafeLocationId(world);
+            var profile = world.MainPlayer != null ? world.MainPlayer.Profile : null;
+            var candidates = CollectCandidates(profile);
+
+            LogTiming("quest candidates", started);
+
+            var zonesAt = System.Diagnostics.Stopwatch.GetTimestamp();
 
             // one trigger scan, used both to decide relevance and to place zone markers. the scan
             // is shared with the esp and happens a handful of times at raid start, not every tick.
@@ -1073,19 +1115,24 @@ namespace Vzor
                 CollectZones(SceneTriggers.Visit, presentZones);
             }
 
+            LogTiming("quest zones", zonesAt);
+
+            var filterAt = System.Diagnostics.Stopwatch.GetTimestamp();
+
             var included = new List<QuestEntry>();
             var seenNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var required = new Dictionary<string, int>();
             var zoneNames = new Dictionary<string, string>();
+
+            // a location condition naming this map is the strongest signal there is. the set does
+            // not change while you stand on the same map, so it is built once, not per candidate.
+            var here = CurrentLocationIds(locationId);
 
             foreach (var candidate in candidates)
             {
                 bool include;
 
                 include = false;
-
-                // a location condition naming this map is the strongest signal there is
-                var here = CurrentLocationIds(locationId);
 
                 foreach (var location in candidate.Locations)
                 {
@@ -1126,8 +1173,12 @@ namespace Vzor
                 }
             }
 
+            LogTiming("quest filter", filterAt);
+
             // count what you are actually carrying, and only chase the shortfall
+            var carriedAt = System.Diagnostics.Stopwatch.GetTimestamp();
             var carried = CountCarried(profile);
+            LogTiming("quest carried", carriedAt);
 
             _wantedQuestItems.Clear();
 
@@ -1230,6 +1281,7 @@ namespace Vzor
 
             zones.Append(']');
 
+            var jsonAt = System.Diagnostics.Stopwatch.GetTimestamp();
             var sb = new StringBuilder(4096);
             sb.Append("{\"items\":[");
 
@@ -1247,7 +1299,10 @@ namespace Vzor
             sb.Append(",\"containers\":").Append(_questContainerJson);
             sb.Append('}');
 
-            return sb.ToString();
+            var built = sb.ToString();
+            LogTiming("quest json", jsonAt);
+
+            return built;
         }
         // quest locations are mongoids, not folder names, so "bigmap" has to be translated
         // through the location data before it can be compared.
@@ -1382,8 +1437,14 @@ namespace Vzor
             return _storyQuests.TryGetValue(questId, out var value) ? value : (bool?)null;
         }
 
+        private static string _hereFor;
+        private static HashSet<string> _hereIds;
+
         private static HashSet<string> CurrentLocationIds(string locationId)
         {
+            if (_hereIds != null && string.Equals(_hereFor, locationId, StringComparison.Ordinal))
+                return _hereIds;
+
             var keys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
             AddLocationKeys(locationId, keys);
@@ -1394,6 +1455,9 @@ namespace Vzor
                 AddLocationKeys("factory4_day", keys);
                 AddLocationKeys("factory4_night", keys);
             }
+
+            _hereFor = locationId;
+            _hereIds = keys;
 
             return keys;
         }
