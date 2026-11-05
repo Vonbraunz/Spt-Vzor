@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.7.13
+
+- **The vitals are held at 1 HP instead of being denied death at 0.** The destroy guard was already refusing `DestroyBodyPart`, but the health *number* still bled down to zero, and EFT refuses to heal a part that reads zero, so the thorax sat blacked and unhealable for the rest of the raid. A prefix on `ActiveHealthController.ChangeHealth`, the setter every damage and bleed path writes through, now trims a lethal delta so the part lands on exactly 1. If a protected part is somehow already under 1, the same hook lifts it back, because a setter can do that and `Heal` cannot.
+- **The bleed tick gets a postfix pin.** If `ApplyDistributedHealthRate` ever writes health without going through that setter, the postfix calls the pin sweep anyway. One of the two hooks has to catch it.
+- **Stomach is protected alongside head, thorax and the blast pool.** Same list drives the damage clamp, the destroy refusal and the new floor, instead of three copies drifting apart.
+- **The logging is rate limited.** `[dad] held vitals at 1 (14 hits, last Chest -62.8)` once every five seconds with a count, instead of three hundred lines a raid.
+
+The practical difference: your thorax shows as damaged, not blacked, a medkit can heal it, and bleeding still costs you arms, legs, painkillers and time. It no longer costs you the ability to heal at all.
+
 ## 0.7.12
 
 - **The blast pool is clamped too.** `ApplyDamage` now trims damage to `Common` as well as `Head` and `Chest`. `Common` is where explosion and fall damage lands, which is why a claymore still killed you while both vitals sat at 1. The heal sweep already pinned it; the hit path did not.

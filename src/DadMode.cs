@@ -11,8 +11,22 @@ namespace Vzor
     internal static class DadMode
     {
         // common is the pool explosions, falls and scripted damage use. leaving it out is how a
-        // grenade still kills you with both vitals at 1 hp.
-        internal static readonly EBodyPart[] VitalParts = { EBodyPart.Head, EBodyPart.Chest, EBodyPart.Common };
+        // grenade still kills you with both vitals at 1 hp. stomach joins them because the original
+        // mod treats it as critical and a blast loves it.
+        internal static readonly EBodyPart[] VitalParts =
+        {
+            EBodyPart.Head, EBodyPart.Chest, EBodyPart.Stomach, EBodyPart.Common
+        };
+
+        internal static bool IsVital(EBodyPart part)
+        {
+            for (var i = 0; i < VitalParts.Length; i++)
+            {
+                if (VitalParts[i] == part) return true;
+            }
+
+            return false;
+        }
 
         internal static bool Clamp(Harmony harmony)
         {
@@ -43,6 +57,29 @@ namespace Vzor
             {
                 harmony.Patch(kill, prefix: new HarmonyMethod(
                     typeof(DadModePatch).GetMethod(nameof(DadModePatch.KillPrefix),
+                        System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)));
+            }
+
+            // the setter every damage path funnels through, including bleeds. this is where a vital
+            // gets held at 1 instead of being blacked and then denied a funeral. registered last on
+            // purpose: if this one ever refuses to patch, the three guards above stay live.
+            var change = AccessTools.Method(typeof(ActiveHealthController), nameof(ActiveHealthController.ChangeHealth));
+
+            if (change != null)
+            {
+                harmony.Patch(change, prefix: new HarmonyMethod(
+                    typeof(DadModePatch).GetMethod(nameof(DadModePatch.ChangePrefix),
+                        System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)));
+            }
+
+            // and the bleed tick, in case it writes health without going through that setter
+            var rate = AccessTools.Method(typeof(ActiveHealthController),
+                nameof(ActiveHealthController.ApplyDistributedHealthRate));
+
+            if (rate != null)
+            {
+                harmony.Patch(rate, postfix: new HarmonyMethod(
+                    typeof(DadModePatch).GetMethod(nameof(DadModePatch.DistributedPostfix),
                         System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)));
             }
 
@@ -118,7 +155,7 @@ namespace Vzor
             if (damage <= 0f) return;
             // common is where blast and fall damage lands, and leaving it out is how a claymore
             // still killed you with both vitals sitting at 1.
-            if (bodyPart != EBodyPart.Head && bodyPart != EBodyPart.Chest && bodyPart != EBodyPart.Common) return;
+            if (!DadMode.IsVital(bodyPart)) return;
             if (!IsLocal(__instance)) return;
 
             try
@@ -195,6 +232,58 @@ namespace Vzor
             Plugin.Logger.LogInfo(line);
         }
 
+        // the setter every damage path funnels through. holding the part at 1 here is what keeps it
+        // alive enough to heal, because Heal refuses to touch a part that already reads zero.
+        private static float _nextFloorLog;
+        private static int _floorHits;
+        private static string _floorLast = "-";
+
+        internal static void ChangePrefix(ActiveHealthController __instance, EBodyPart bodyPart, ref float value)
+        {
+            if (!Plugin.QolDadMode.Value) return;
+            if (value >= 0f) return;
+            if (!DadMode.IsVital(bodyPart)) return;
+            if (WorldTracker.Current == null) return;
+            if (!IsLocal(__instance)) return;
+
+            try
+            {
+                var current = __instance.GetBodyPartHealth(bodyPart, false).Current;
+                if (current + value >= 1f) return;
+
+                _floorHits++;
+                _floorLast = bodyPart + " " + value.ToString("0.0");
+
+                // deliberately positive when the part is already under the floor. a setter can put
+                // it back, a heal cannot.
+                value = 1f - current;
+
+                var now = UnityEngine.Time.unscaledTime;
+
+                if (now > _nextFloorLog)
+                {
+                    _nextFloorLog = now + 5f;
+                    Plugin.Logger.LogInfo("[dad] held vitals at 1 (" + _floorHits + " hits, last " +
+                                          _floorLast + ")");
+                    _floorHits = 0;
+                }
+            }
+            catch
+            {
+                // controller mid rebuild, the sweep will do
+            }
+        }
+
+        // if the bleed tick writes health without going through ChangeHealth, this still holds the
+        // line. cheap, and it means one of the two hooks has to fire.
+        internal static void DistributedPostfix(ActiveHealthController __instance)
+        {
+            if (!Plugin.QolDadMode.Value) return;
+            if (!IsLocal(__instance)) return;
+
+            DadMode.Pin(__instance);
+        }
+
         // mine blasts and scripted traps often skip the damage pipeline and just call kill.
         private static float _nextKillLog;
 
@@ -229,9 +318,7 @@ namespace Vzor
         {
             if (!Plugin.QolDadMode.Value) return true;
             // common covers blast and fall deaths, which do not go through a limb or the chest.
-            // stomach matches the original mod's critical list.
-            if (bodyPart != EBodyPart.Head && bodyPart != EBodyPart.Chest &&
-                bodyPart != EBodyPart.Common && bodyPart != EBodyPart.Stomach) return true;
+            if (!DadMode.IsVital(bodyPart)) return true;
             if (!IsLocal(__instance)) return true;
 
             try
