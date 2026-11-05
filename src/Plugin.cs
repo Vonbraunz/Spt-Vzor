@@ -15,7 +15,7 @@ namespace Vzor
     public class Plugin : BasePlugin
     {
         public const string Guid = "local.vzor";
-        public const string Version = "0.7.10";
+        public const string Version = "0.7.11";
 
         internal static ManualLogSource Logger;
         internal static ConfigFile File;
@@ -501,8 +501,17 @@ namespace Vzor
                     Logger.LogWarning("sway settings patch skipped, method not found");
                 }
 
-                if (DadMode.Clamp(harmony)) Logger.LogInfo("dad mode patch applied");
-                else Logger.LogWarning("dad mode patch skipped, ApplyDamage not found");
+                // its own try/catch: a single unhookable method used to abort every registration
+                // after it, which silently disabled the world tracker and therefore everything
+                try
+                {
+                    if (DadMode.Clamp(harmony)) Logger.LogInfo("dad mode patch applied");
+                    else Logger.LogWarning("dad mode patch skipped, ApplyDamage not found");
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogError("dad mode patch failed: " + ex.Message);
+                }
 
                 var magicMethod = HarmonyLib.AccessTools.Method(
                     typeof(EFT.Player.FirearmController), "InitiateShot");
@@ -641,7 +650,7 @@ namespace Vzor
             }
             catch (Exception ex)
             {
-                Logger.LogError("stamina consume patch failed: " + ex.Message);
+                Logger.LogError("patch registration failed: " + ex.Message);
             }
             Logger.LogInfo("Vzor " + Version + " loaded. config only, no hotkeys.");
         }

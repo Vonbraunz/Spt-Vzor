@@ -34,17 +34,9 @@ namespace Vzor
                         System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)));
             }
 
-            // bleeds and burns should still hurt and still black limbs, so distributed damage runs
-            // untouched. what gets swallowed is the flip to dead, as a last resort.
-            var alive = AccessTools.PropertySetter(typeof(ActiveHealthController), "IsAlive");
-
-            if (alive != null)
-            {
-                harmony.Patch(alive, prefix: new HarmonyMethod(
-                    typeof(DadModePatch).GetMethod(nameof(DadModePatch.IsAlivePrefix),
-                        System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)));
-            }
-
+            // no IsAlive patch here on purpose. that setter is declared on the generic base and
+            // harmony refuses to patch it through a closed subclass, which throws and takes every
+            // later registration down with it. DestroyBodyPart is the hook that matters anyway.
             return true;
         }
 
@@ -155,7 +147,8 @@ namespace Vzor
         internal static bool DestroyPrefix(ActiveHealthController __instance, EBodyPart bodyPart)
         {
             if (!Plugin.QolDadMode.Value) return true;
-            if (bodyPart != EBodyPart.Head && bodyPart != EBodyPart.Chest) return true;
+            // common covers blast and fall deaths, which do not go through a limb or the chest
+            if (bodyPart != EBodyPart.Head && bodyPart != EBodyPart.Chest && bodyPart != EBodyPart.Common) return true;
             if (!IsLocal(__instance)) return true;
 
             try
