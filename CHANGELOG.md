@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.8
+
+- **Dad Gamer Mode also protects `Common`.** That is the pool explosions, falls and scripted damage go through; leaving it out is how you can still be killed by a grenade with both vitals sitting at 1 HP. Head, thorax and the common pool are now all floored at 1 and healed back if something gets past the clamp.
+- **Every clamp is logged.** `[dad] clamped Chest from 84.0 to 1.0 (current 2.0)` and similar. It is rare, and it turns the next "something killed me anyway" into a concrete answer: if you die with no clamp line for that part, the death did not come through `ApplyDamage`.
+
 ## 0.7.7
 
 - **Dad Gamer Mode.** A new `QoL` toggle: the head and the thorax cannot be blacked out. Damage that would take either part below 1 HP is trimmed so it lands on exactly 1, so the hit still staggers and bleeds you but cannot kill you through the two death parts. Everything else still breaks normally. A per-frame sweep heals either part back to 1 if something gets past the damage clamp (a bleed tick, distributed damage, a wound you loaded in with), because that cannot resurrect you if death already fired in the same frame.

@@ -9,7 +9,9 @@ namespace Vzor
     // in by another route (bleeds, distributed damage, a wound you spawned with).
     internal static class DadMode
     {
-        internal static readonly EBodyPart[] VitalParts = { EBodyPart.Head, EBodyPart.Chest };
+        // common is the pool explosions, falls and scripted damage use. leaving it out is how a
+        // grenade still kills you with both vitals at 1 hp.
+        internal static readonly EBodyPart[] VitalParts = { EBodyPart.Head, EBodyPart.Chest, EBodyPart.Common };
 
         internal static bool Clamp(Harmony harmony)
         {
@@ -59,7 +61,15 @@ namespace Vzor
                 var health = __instance.GetBodyPartHealth(bodyPart, false);
                 var allowed = health.Current - 1f;
 
-                if (damage > allowed) damage = Math.Max(0f, allowed);
+                if (damage > allowed)
+                {
+                    // log every clamp. it is rare, and it answers "what killed me" the next time
+                    // something gets through anyway.
+                    Plugin.Logger.LogInfo("[dad] clamped " + bodyPart + " from " + damage.ToString("0.0") +
+                                          " to " + Math.Max(0f, allowed).ToString("0.0") +
+                                          " (current " + health.Current.ToString("0.0") + ")");
+                    damage = Math.Max(0f, allowed);
+                }
             }
             catch
             {
