@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.6
+
+- **No Sway, take two.** Disabling the walk and hand shake effectors and zeroing `MotionReact.SwayFactors` got most of the strafe movement but left a slight side to side, because the motion effector integrates velocity and acceleration into its own `Motion` value each frame. It now clears that whole state as well: motion, velocity, position and rotation velocity, both accelerations. The force effector's random wiggle is zeroed too, and so are the PWA's own sway strength and factor, since those are re-derived every frame.
+
 ## 0.7.5
 
 - **No Sway also stops the gun moving when you strafe.** The old version zeroed the sway fields and the breath effector, which kills aim wobble but leaves movement handled elsewhere. The walk effector produces the step bob and its side speed multiplier is what throws the weapon around during a strafe, and the motion effector adds the inertia on top. Both are now disabled while the option is on, and restored when it is turned off, so the gun sits still in your hands instead of only being steady while standing.

@@ -43,8 +43,32 @@ namespace Vzor
                 pwa.WalkEffectorEnabled = false;
                 pwa.HandShakeEffectorEnabled = false;
 
+                // the motion effector integrates velocity and acceleration into Motion every
+                // frame, so SwayFactors alone leaves a little side to side left over. clear the
+                // whole state, not just the weight it is applied with.
                 var motion = pwa.MotionReact;
-                if (motion != null) motion.SwayFactors = Vector3.zero;
+                if (motion != null)
+                {
+                    motion.SwayFactors = Vector3.zero;
+                    motion.Motion = Vector3.zero;
+                    motion.Velocity = Vector3.zero;
+                    motion.PositionVelocity = Vector3.zero;
+                    motion.RotationVelocity = Vector2.zero;
+                    motion.PositionAcceleration = Vector3.zero;
+                    motion.RotationAcceleration = Vector2.zero;
+                }
+
+                // random force is the other thing that nudges a stationary weapon around
+                var force = pwa.ForceReact;
+                if (force != null)
+                {
+                    force.Intensity = 0f;
+                    force.WiggleMagnitude = 0f;
+                }
+
+                pwa._swayStrength = 0f;
+                pwa._swayFactor = 0f;
+                pwa._aimSwayStrength = 0f;
 
                 _swaySuppressed = true;
             }
