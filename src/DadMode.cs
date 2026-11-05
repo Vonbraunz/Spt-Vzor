@@ -23,8 +23,19 @@ namespace Vzor
                 typeof(DadModePatch).GetMethod(nameof(DadModePatch.Prefix),
                     System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)));
 
+            // the original dad mode mod blocks this instead of the damage, and it is right: a body
+            // part being destroyed is what kills you. limbs still black out, head and chest do not.
+            var destroy = AccessTools.Method(typeof(ActiveHealthController), nameof(ActiveHealthController.DestroyBodyPart));
+
+            if (destroy != null)
+            {
+                harmony.Patch(destroy, prefix: new HarmonyMethod(
+                    typeof(DadModePatch).GetMethod(nameof(DadModePatch.DestroyPrefix),
+                        System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)));
+            }
+
             // bleeds and burns should still hurt and still black limbs, so distributed damage runs
-            // untouched. what gets swallowed is the death itself, below.
+            // untouched. what gets swallowed is the flip to dead, as a last resort.
             var alive = AccessTools.PropertySetter(typeof(ActiveHealthController), "IsAlive");
 
             if (alive != null)
@@ -126,11 +137,10 @@ namespace Vzor
 
             try
             {
-                var world = WorldTracker.Current;
-                var player = world != null ? world.MainPlayer : null;
-                var local = player != null ? player.ActiveHealthController : null;
-
-                return local != null && local.Pointer == instance.Pointer;
+                // the controller already knows which player it belongs to. comparing pointers to
+                // MainPlayer was a guess that bots made expensive.
+                var player = instance.Player;
+                return player != null && player.IsYourPlayer;
             }
             catch
             {
@@ -140,6 +150,27 @@ namespace Vzor
 
         // skipping the tick entirely is heavy handed, but the alternative is arithmetic on a rate
         // that applies to every body part at once. dad mode is already a cheat.
+        // a destroyed head or chest is the normal death. refuse it, and keep the part at 1 hp so the
+        // ui does not show a blacked vital either.
+        internal static bool DestroyPrefix(ActiveHealthController __instance, EBodyPart bodyPart)
+        {
+            if (!Plugin.QolDadMode.Value) return true;
+            if (bodyPart != EBodyPart.Head && bodyPart != EBodyPart.Chest) return true;
+            if (!IsLocal(__instance)) return true;
+
+            try
+            {
+                var health = __instance.GetBodyPartHealth(bodyPart, false);
+                if (health.Current < 1f) __instance.Heal(bodyPart, 1f - health.Current);
+            }
+            catch
+            {
+                // sweep next frame
+            }
+
+            return false;
+        }
+
         // only the flip to dead is swallowed, and only for the local player. everything that leads
         // there still happens: hp drops, limbs black, bleeds tick, the screen goes red.
         internal static bool IsAlivePrefix(ActiveHealthController __instance, bool value)
