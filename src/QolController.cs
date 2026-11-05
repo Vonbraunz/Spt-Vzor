@@ -23,6 +23,56 @@ namespace Vzor
             if (Plugin.QolInfiniteStamina.Value) PinStamina();
             if (Plugin.QolNoRecoil.Value) ApplyWeaponTweaks();
             if (Plugin.QolNoMalfunction.Value) ApplyNoMalfunction();
+
+            if (Plugin.QolNoSway.Value) ApplyNoSway();
+            else RestoreNoSway();
+        }
+
+        private bool _swaySuppressed;
+
+        // strafing moves the gun through the walk and motion effectors, not through the sway
+        // fields the patch already zeroes. turning the effectors off is the difference between
+        // "no aim wobble" and "the gun does not move at all".
+        private void ApplyNoSway()
+        {
+            try
+            {
+                var pwa = _player.ProceduralWeaponAnimation;
+                if (pwa == null) return;
+
+                pwa.WalkEffectorEnabled = false;
+                pwa.HandShakeEffectorEnabled = false;
+
+                var motion = pwa.MotionReact;
+                if (motion != null) motion.SwayFactors = Vector3.zero;
+
+                _swaySuppressed = true;
+            }
+            catch
+            {
+                // weapon mid swap, next frame will do
+            }
+        }
+
+        private void RestoreNoSway()
+        {
+            if (!_swaySuppressed) return;
+
+            try
+            {
+                var pwa = _player != null ? _player.ProceduralWeaponAnimation : null;
+                if (pwa != null)
+                {
+                    pwa.WalkEffectorEnabled = true;
+                    pwa.HandShakeEffectorEnabled = true;
+                }
+            }
+            catch
+            {
+                // nothing to restore
+            }
+
+            _swaySuppressed = false;
         }
 
         private void PinStamina()
