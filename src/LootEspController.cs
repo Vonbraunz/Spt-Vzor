@@ -97,6 +97,8 @@ namespace Vzor
         private int _rebuildPass;
         private int _emptyRegistryPasses;
         private bool _sceneScanned;
+        private Il2CppArrayBase<LootableContainer> _sceneFound;
+        private int _sceneCursor;
 
         private System.IntPtr _containerWorld;
         private int _contentsBudget;
@@ -622,6 +624,8 @@ namespace Vzor
                 _loggedContainers = false;
                 _emptyRegistryPasses = 0;
                 _sceneScanned = false;
+                _sceneFound = null;
+                _sceneCursor = 0;
             }
 
             if (now >= _nextContainerScan)
@@ -640,25 +644,26 @@ namespace Vzor
                 _containerContentsAt.Clear();
             }
 
+            PumpSceneAdds();
+
             if (_rebuildCursor < 0) return;
 
             var source = _world != null && _world.World != null
                 ? _world.World._interactableObjectsForNetSync
                 : null;
 
-            // the registry is empty while the world is still building, which is most of the load.
-            // sweeping the scene there costs up to a hundred and forty milliseconds a go, so it
-            // happens once per world, and only after a few empty passes to be sure.
+            // the registry is empty while the world is still building, and on some maps it never
+            // arrives at all. streets is one: its 998 containers only ever came from the scene
+            // sweep. retry every couple of seconds instead of waiting out the rebuild backoff, and
+            // sweep once per world after a few tries.
             if (source == null || source.Length == 0)
             {
                 _rebuildCursor = -1;
                 _emptyRegistryPasses++;
+                _nextContainerScan = now + 2f;
 
                 if (_emptyRegistryPasses >= 3 && !_sceneScanned)
-                {
-                    _sceneScanned = true;
                     FinishContainerPass(true);
-                }
 
                 return;
             }
@@ -696,25 +701,48 @@ namespace Vzor
         {
             var started = System.Diagnostics.Stopwatch.GetTimestamp();
 
-            // the registry came back empty, so fall back to the scene. it costs a sweep, but this
-            // happens at most once a minute and only on maps that have no registry.
+            // no registry, so take the scene list. the find itself is unavoidable, but the per
+            // container bounds work is not, so it is queued and fed in a few at a time.
             if (_containers.Count == 0 && !_sceneScanned)
             {
                 _sceneScanned = true;
-
-                var found = UnityEngine.Object.FindObjectsOfType<LootableContainer>();
-                if (found != null)
-                    for (var i = 0; i < found.Length; i++) AddContainer(found[i]);
+                _sceneFound = UnityEngine.Object.FindObjectsOfType<LootableContainer>();
+                _sceneCursor = 0;
             }
 
             LogTiming("container scene scan", started);
 
-            if (!_loggedContainers)
+            if (_sceneFound != null) return;
+
+            if (_loggedContainers) return;
+
+            _loggedContainers = true;
+            Plugin.Logger.LogInfo("loot esp: tracking " + _containers.Count + " containers" +
+                                  (sceneScan ? " (no registry, scene scan)" : string.Empty));
+        }
+
+        // a hundred containers a frame. the whole point of this is to keep a thousand bounds boxes
+        // from landing in one frame at raid start on a map with no registry.
+        private void PumpSceneAdds()
+        {
+            if (_sceneFound == null) return;
+
+            var budget = 100;
+
+            while (budget-- > 0 && _sceneCursor < _sceneFound.Length)
             {
-                _loggedContainers = true;
-                Plugin.Logger.LogInfo("loot esp: tracking " + _containers.Count + " containers" +
-                                      (sceneScan ? " (no registry, scene scan)" : string.Empty));
+                AddContainer(_sceneFound[_sceneCursor]);
+                _sceneCursor++;
             }
+
+            if (_sceneCursor < _sceneFound.Length) return;
+
+            _sceneFound = null;
+
+            if (_loggedContainers) return;
+
+            _loggedContainers = true;
+            Plugin.Logger.LogInfo("loot esp: tracking " + _containers.Count + " containers (no registry, scene scan)");
         }
 
         private void AddContainer(LootableContainer container)

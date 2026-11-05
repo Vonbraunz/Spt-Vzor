@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.20
+
+- **Container tracking on Streets was broken by 0.7.18.** The empty-registry path set `_sceneScanned = true` *before* calling the scene sweep, so the sweep's own guard saw it already done and skipped it. The log cheerfully said `tracking 0 containers (no registry, scene scan)` while no scan had run, which is why that build reported zero containers for a whole raid. Removed, and the registry is now retried every two seconds while it is empty instead of waiting out the ten second backoff.
+- **The scene sweep is fed in a hundred containers a frame.** `FindObjectsOfType` is unavoidable, but the per-container bounds work is not, so a thousand of them no longer land in one frame at raid start on a map with no registry.
+- The 0.7.19 capture itself is clean: p50 22.6 ms, p99 41.1 ms, one spike over 60 ms in sixty seconds (167 ms at 52.9 s, the death and the trip back to the hideout). ESP scan is 10 to 12 ms, and the only chams tick over ten was the first one at 21 ms while it built materials.
+
 ## 0.7.19
 
 - **The ESP stops asking the config for the same answer a thousand times.** Every container and every loot item was reading up to ten `ConfigEntry.Value`s per pass, which on Streets is 998 containers and around 1294 items, four times a second. The values are snapshotted once per scan pass into fields now, including the category switches as a lookup table instead of a switch over config reads.
