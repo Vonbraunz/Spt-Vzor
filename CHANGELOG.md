@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.7.14
+
+- **The periodic hitch was a full container rebuild every ten seconds.** `ScanContainers` cleared its lists and then walked every interactable on the map on the main thread, building a bounds box per container. On Interchange that is the half second stall; in the hideout it is the 60 to 125 ms one. The walk now runs 200 entries per frame, so the list fills over a second or two at under a millisecond a frame, and the rebuild drops to once a minute after the first three passes.
+- **The two `FindObjectsOfType` sweeps are gone from the ten second loop.** Both the ESP zone markers and the web map quest data were scanning the whole scene for `PlaceItemTrigger` and `QuestTrigger` twice every ten seconds, independently. They now share one cache in `SceneTriggers` that fills a handful of times at raid start and then stops, which is exactly when a hitch is invisible anyway.
+- **Container contents refresh is budgeted.** After a rebuild every nearby container is "due", and the old code read all of them in one frame. Four per scan pass now, so a cluster of safes does not spike.
+- **Timing logs exist.** `[timing] esp scan 123.4 ms, 219 markers, 140 containers` and `[timing] web map quest data / transits / loot <ms>` appear only when a block is slow. If the ten second beat survives this build, those lines name the block that owns it instead of us guessing.
+- **Why the second stall in each pair was odd.** Two independent ten second timers, one for the ESP zone scan and one for the web map quest data, start a frame or two apart and keep that offset. The gap changing with the scene was the offset, not a follow-up. Both are the same scan now, so there is only one beat.
+
 ## 0.7.13
 
 - **The vitals are held at 1 HP instead of being denied death at 0.** The destroy guard was already refusing `DestroyBodyPart`, but the health *number* still bled down to zero, and EFT refuses to heal a part that reads zero, so the thorax sat blacked and unhealable for the rest of the raid. A prefix on `ActiveHealthController.ChangeHealth`, the setter every damage and bleed path writes through, now trims a lethal delta so the part lands on exactly 1. If a protected part is somehow already under 1, the same hook lifts it back, because a setter can do that and `Heal` cannot.

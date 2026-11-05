@@ -82,11 +82,6 @@ namespace Vzor
         private readonly List<int> _containerValues = new List<int>();
         private readonly List<int> _containerCounts = new List<int>();
         private readonly List<float> _containerContentsAt = new List<float>();
-        private readonly List<EFT.Interactive.PlaceItemTrigger> _zoneTriggers = new List<EFT.Interactive.PlaceItemTrigger>();
-        private readonly List<Vector3> _zoneCenters = new List<Vector3>();
-        private readonly List<EFT.Interactive.QuestTrigger> _visitTriggers = new List<EFT.Interactive.QuestTrigger>();
-        private readonly List<Vector3> _visitCenters = new List<Vector3>();
-        private float _nextZoneScan;
         private readonly HashSet<int> _seen = new HashSet<int>();
 
         private GameWorld _world;
@@ -98,6 +93,10 @@ namespace Vzor
 
         private float _nextScan;
         private float _nextContainerScan;
+        private int _rebuildCursor = -1;
+        private int _rebuildPass;
+        private System.IntPtr _containerWorld;
+        private int _contentsBudget;
         private bool _active;
         private bool _loggedCamera;
         private bool _loggedScan;
@@ -119,10 +118,25 @@ namespace Vzor
             if (!_active) return;
 
             var now = Time.unscaledTime;
+
+            // the container list fills a few hundred entries a frame instead of one long walk.
+            // it used to be the single biggest stall in the mod on a loot heavy map.
+            PumpContainerRebuild(now);
+
             if (now >= _nextScan)
             {
                 _nextScan = now + 0.25f;
+
+                var started = System.Diagnostics.Stopwatch.GetTimestamp();
                 Scan(now);
+                var ms = (System.Diagnostics.Stopwatch.GetTimestamp() - started) * 1000.0 /
+                         System.Diagnostics.Stopwatch.Frequency;
+
+                if (ms >= 10.0)
+                {
+                    Plugin.Logger.LogInfo("[timing] esp scan " + ms.ToString("0.0") + " ms, " +
+                                          _markers.Count + " markers, " + _containers.Count + " containers");
+                }
             }
 
             UpdateGrenades();
@@ -299,6 +313,7 @@ namespace Vzor
             _seen.Clear();
             _scannedLoot = 0;
             _valueFiltered = 0;
+            _contentsBudget = 4;
 
             ItemTargets.Refresh(_world, now);
 
@@ -466,32 +481,6 @@ namespace Vzor
         private void ScanContainers(Vector3 camPos, Il2CppStructArray<Plane> planes, bool viewOnly,
             float lootDistance, float now)
         {
-            if (now >= _nextContainerScan)
-            {
-                _nextContainerScan = now + 10f;
-                _containers.Clear();
-                _containerCenters.Clear();
-                _containerNames.Clear();
-                _containerValues.Clear();
-                _containerCounts.Clear();
-                _containerContentsAt.Clear();
-
-                // the world registry is authoritative and cheap. findobjectsoftype is the
-                // fallback for maps where it comes back empty, which happens.
-                if (RefreshContainers() == 0)
-                {
-                    var found = UnityEngine.Object.FindObjectsOfType<LootableContainer>();
-                    if (found != null)
-                        for (var i = 0; i < found.Length; i++) AddContainer(found[i]);
-                }
-
-                if (!_loggedContainers)
-                {
-                    _loggedContainers = true;
-                    Plugin.Logger.LogInfo("loot esp: tracking " + _containers.Count + " containers");
-                }
-            }
-
             for (var i = 0; i < _containers.Count && i < _containerCenters.Count; i++)
             {
                 try
@@ -523,10 +512,12 @@ namespace Vzor
                     if (Plugin.EspOcclusion.Value && !Visibility.HasLineOfSight(camPos, position, _containers[i].transform)) continue;
 
                     // contents are read lazily, only when the container is close, and refreshed
-                    // every 10 seconds so it tracks what you have already taken out of it.
-                    if (Plugin.EspScanContents.Value && now >= _containerContentsAt[i] &&
+                    // every 10 seconds so it tracks what you have already taken out of it. the
+                    // budget keeps a rebuild from reading every nearby container in one frame.
+                    if (Plugin.EspScanContents.Value && _contentsBudget > 0 && now >= _containerContentsAt[i] &&
                         distance <= Plugin.EspContentsDistance.Value)
                     {
+                        _contentsBudget--;
                         if (Plugin.EspUseLivePrices.Value) PriceDatabase.EnsureLoaded(Plugin.EspPriceFile.Value);
 
                         ComputeContents(_containers[i], out var count, out var value);
@@ -554,29 +545,90 @@ namespace Vzor
             }
         }
 
-        private int RefreshContainers()
+        // the container list used to be rebuilt in one go every ten seconds, on the main thread,
+        // walking every interactable on the map. on interchange that was half a second. now the
+        // walk is a few hundred entries per frame: the list fills in a second or two, the cost per
+        // frame is under a millisecond, and nobody sees it.
+        private void PumpContainerRebuild(float now)
         {
-            var world = _world.World;
-            var source = world != null ? world._interactableObjectsForNetSync : null;
-            if (source == null) return 0;
+            if (!Plugin.EspContainers.Value) return;
 
-            for (var i = 0; i < source.Length; i++)
+            if (_world != null && _world.Pointer != _containerWorld)
+            {
+                _containerWorld = _world.Pointer;
+                _rebuildPass = 0;
+                _nextContainerScan = 0f;
+                _rebuildCursor = -1;
+                _loggedContainers = false;
+            }
+
+            if (now >= _nextContainerScan)
+            {
+                // the first few passes catch containers that spawn late, then they are all here
+                // and a rebuild every ten seconds is just a hitch with a rhythm.
+                _rebuildPass++;
+                _nextContainerScan = now + (_rebuildPass <= 3 ? 10f : 60f);
+                _rebuildCursor = 0;
+
+                _containers.Clear();
+                _containerCenters.Clear();
+                _containerNames.Clear();
+                _containerValues.Clear();
+                _containerCounts.Clear();
+                _containerContentsAt.Clear();
+            }
+
+            if (_rebuildCursor < 0) return;
+
+            var source = _world != null && _world.World != null
+                ? _world.World._interactableObjectsForNetSync
+                : null;
+
+            if (source == null)
+            {
+                _rebuildCursor = -1;
+                return;
+            }
+
+            var budget = 200;
+
+            while (budget-- > 0 && _rebuildCursor < source.Length)
             {
                 try
                 {
-                    var entry = source[i];
-                    if (entry == null) continue;
-
-                    var container = entry.TryCast<LootableContainer>();
-                    if (container != null) AddContainer(container);
+                    var entry = source[_rebuildCursor];
+                    if (entry != null)
+                    {
+                        var container = entry.TryCast<LootableContainer>();
+                        if (container != null) AddContainer(container);
+                    }
                 }
                 catch
                 {
                     // interactive object vanished
                 }
+
+                _rebuildCursor++;
             }
 
-            return _containers.Count;
+            if (_rebuildCursor < source.Length) return;
+
+            _rebuildCursor = -1;
+
+            if (!_loggedContainers)
+            {
+                _loggedContainers = true;
+                Plugin.Logger.LogInfo("loot esp: tracking " + _containers.Count + " containers");
+            }
+
+            // the registry is empty on some maps, which is what the old findobjectsoftype path was
+            // for. it runs once per rebuild, and only when the walk found nothing at all.
+            if (_containers.Count == 0)
+            {
+                var found = UnityEngine.Object.FindObjectsOfType<LootableContainer>();
+                if (found != null)
+                    for (var i = 0; i < found.Length; i++) AddContainer(found[i]);
+            }
         }
 
         private void AddContainer(LootableContainer container)
@@ -704,103 +756,38 @@ namespace Vzor
             // only bother if an active quest actually names a zone on this map
             if (ItemTargets.Zones.Count == 0) return;
 
-            if (now >= _nextZoneScan)
-            {
-                _nextZoneScan = now + 10f;
-                _zoneTriggers.Clear();
-                _zoneCenters.Clear();
-                _visitTriggers.Clear();
-                _visitCenters.Clear();
-
-                try
-                {
-                    var found = UnityEngine.Object.FindObjectsOfType<EFT.Interactive.PlaceItemTrigger>();
-                    if (found != null)
-                    {
-                        for (var i = 0; i < found.Length; i++)
-                        {
-                            var trigger = found[i];
-                            if (trigger == null) continue;
-                            _zoneTriggers.Add(trigger);
-                            _zoneCenters.Add(trigger.transform.position + Vector3.up * 1.2f);
-                        }
-                    }
-
-                    var visits = UnityEngine.Object.FindObjectsOfType<EFT.Interactive.QuestTrigger>();
-                    if (visits != null)
-                    {
-                        for (var i = 0; i < visits.Length; i++)
-                        {
-                            var trigger = visits[i];
-                            if (trigger == null) continue;
-                            _visitTriggers.Add(trigger);
-                            _visitCenters.Add(trigger.transform.position + Vector3.up * 1.2f);
-                        }
-                    }
-                }
-                catch
-                {
-                    // triggers not spawned yet
-                }
-            }
+            // one shared scan for the whole plugin. it runs a handful of times at raid start and
+            // then stops, instead of two findobjectsoftype sweeps every ten seconds per feature.
+            SceneTriggers.Ensure(_world, now);
 
             var maxDistance = Plugin.EspZoneDistance.Value;
 
-            for (var i = 0; i < _zoneTriggers.Count && i < _zoneCenters.Count; i++)
+            AddZoneMarkers(SceneTriggers.Place, camPos, maxDistance, "Quest zone");
+            AddZoneMarkers(SceneTriggers.Visit, camPos, maxDistance, "Visit zone");
+        }
+
+        private void AddZoneMarkers(List<SceneTriggers.Entry> triggers, Vector3 camPos, float maxDistance,
+            string fallback)
+        {
+            for (var i = 0; i < triggers.Count; i++)
             {
                 try
                 {
-                    var trigger = _zoneTriggers[i];
-                    if (trigger == null) continue;
+                    var entry = triggers[i];
+                    if (entry == null || !ItemTargets.Zones.Contains(entry.Id)) continue;
 
-                    var id = trigger.TriggerId;
-                    if (string.IsNullOrEmpty(id)) id = trigger.Id;
-                    if (string.IsNullOrEmpty(id) || !ItemTargets.Zones.Contains(id)) continue;
-
-                    var position = _zoneCenters[i];
+                    var position = entry.Position + Vector3.up * 1.2f;
                     var distance = Vector3.Distance(camPos, position);
                     if (distance > maxDistance) continue;
-
-                    var label = ZoneLabel(id, trigger.Description, "Quest zone");
 
                     _markers.Add(new Marker
                     {
                         World = position,
-                        Label = Shorten(label, Plugin.EspLabelLength.Value),
+                        Label = Shorten(ZoneLabel(entry.Id, entry.Description, fallback),
+                                        Plugin.EspLabelLength.Value),
                         Kind = Kind.Place,
                         Distance = distance,
-                        Source = trigger.transform
-                    });
-                }
-                catch
-                {
-                    // trigger vanished
-                }
-            }
-
-            for (var i = 0; i < _visitTriggers.Count && i < _visitCenters.Count; i++)
-            {
-                try
-                {
-                    var trigger = _visitTriggers[i];
-                    if (trigger == null) continue;
-
-                    var id = trigger.Id;
-                    if (string.IsNullOrEmpty(id) || !ItemTargets.Zones.Contains(id)) continue;
-
-                    var position = _visitCenters[i];
-                    var distance = Vector3.Distance(camPos, position);
-                    if (distance > maxDistance) continue;
-
-                    var label = ZoneLabel(id, trigger.Description, "Visit zone");
-
-                    _markers.Add(new Marker
-                    {
-                        World = position,
-                        Label = Shorten(label, Plugin.EspLabelLength.Value),
-                        Kind = Kind.Place,
-                        Distance = distance,
-                        Source = trigger.transform
+                        Source = entry.Transform
                     });
                 }
                 catch

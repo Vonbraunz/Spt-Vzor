@@ -122,9 +122,11 @@ namespace Vzor
                 if (now >= _nextQuest)
                 {
                     _nextQuest = now + 10f;
+                    var started = System.Diagnostics.Stopwatch.GetTimestamp();
                     _questJson = world != null
                         ? BuildQuestData(world)
                         : "{\"items\":[],\"quests\":[],\"zones\":[],\"loot\":[]}";
+                    LogTiming("quest data", started);
                 }
 
                 // walking container inventories is the expensive part, so it runs less often
@@ -140,7 +142,9 @@ namespace Vzor
                 if (now >= _nextTransit)
                 {
                     _nextTransit = now + 10f;
+                    var started = System.Diagnostics.Stopwatch.GetTimestamp();
                     _transitJson = world != null ? BuildTransits(world) : "[]";
+                    LogTiming("transits", started);
                 }
 
                 // loot is expensive to serialize, so only build it while a page is actually
@@ -148,7 +152,13 @@ namespace Vzor
                 if (now >= _nextLoot)
                 {
                     _nextLoot = now + 5f;
-                    if (world != null && DateTime.UtcNow < _lootWantedUntil) _lootJson = BuildLoot(world);
+
+                    if (world != null && DateTime.UtcNow < _lootWantedUntil)
+                    {
+                        var started = System.Diagnostics.Stopwatch.GetTimestamp();
+                        _lootJson = BuildLoot(world);
+                        LogTiming("loot", started);
+                    }
                 }
 
                 if (now < _nextPush) return;
@@ -969,6 +979,29 @@ namespace Vzor
 
         // quests worth showing: those pinned to this map, plus the "any" ones that actually
         // name a zone on this map. everything else is noise for the raid you are in.
+        // logs the block only when it is slow enough to matter. quiet the rest of the time, which
+        // is the whole point of a timing log that nobody has to turn on.
+        private static void LogTiming(string label, long started)
+        {
+            var ms = (System.Diagnostics.Stopwatch.GetTimestamp() - started) * 1000.0 /
+                     System.Diagnostics.Stopwatch.Frequency;
+
+            if (ms >= 10.0)
+                Plugin.Logger.LogInfo("[timing] web map " + label + " " + ms.ToString("0.0") + " ms");
+        }
+
+        private static void CollectZones(List<SceneTriggers.Entry> triggers, Dictionary<string, Vector3> into)
+        {
+            for (var i = 0; i < triggers.Count; i++)
+            {
+                var entry = triggers[i];
+                if (entry == null || string.IsNullOrEmpty(entry.Id)) continue;
+                if (into.ContainsKey(entry.Id)) continue;
+
+                into[entry.Id] = entry.Position;
+            }
+        }
+
         private string BuildQuestData(GameWorld world)
         {
             var locationId = SafeLocationId(world);
@@ -1028,48 +1061,16 @@ namespace Vzor
                 }
             }
 
-            // one trigger scan, used both to decide relevance and to place zone markers
+            // one trigger scan, used both to decide relevance and to place zone markers. the scan
+            // is shared with the esp and happens a handful of times at raid start, not every tick.
             var presentZones = new Dictionary<string, Vector3>();
 
             if (candidates.Count > 0)
             {
-                try
-                {
-                    var place = UnityEngine.Object.FindObjectsOfType<PlaceItemTrigger>();
-                    if (place != null)
-                    {
-                        for (var i = 0; i < place.Length; i++)
-                        {
-                            var trigger = place[i];
-                            if (trigger == null) continue;
+                SceneTriggers.Ensure(world, UnityEngine.Time.unscaledTime);
 
-                            var id = trigger.TriggerId;
-                            if (string.IsNullOrEmpty(id)) id = trigger.Id;
-                            if (string.IsNullOrEmpty(id) || presentZones.ContainsKey(id)) continue;
-
-                            presentZones[id] = trigger.transform.position;
-                        }
-                    }
-
-                    var visits = UnityEngine.Object.FindObjectsOfType<QuestTrigger>();
-                    if (visits != null)
-                    {
-                        for (var i = 0; i < visits.Length; i++)
-                        {
-                            var trigger = visits[i];
-                            if (trigger == null) continue;
-
-                            var id = trigger.Id;
-                            if (string.IsNullOrEmpty(id) || presentZones.ContainsKey(id)) continue;
-
-                            presentZones[id] = trigger.transform.position;
-                        }
-                    }
-                }
-                catch
-                {
-                    // triggers not spawned yet
-                }
+                CollectZones(SceneTriggers.Place, presentZones);
+                CollectZones(SceneTriggers.Visit, presentZones);
             }
 
             var included = new List<QuestEntry>();
