@@ -1750,8 +1750,10 @@ namespace Vzor
                             // price table not loaded for this file
                         }
 
-                        var type = "?";
-                        try { type = item.GetType().Name; } catch { }
+                        // the world object is a LootItem for everything, so its class name said
+                        // nothing useful. classify from the item template, same as the esp.
+                        var type = "other";
+                        try { type = ItemCategories.Of(item.Item); } catch { }
 
                         // item.Name is the raw template id for loose loot. the esp already knows
                         // how to turn a template id into a locale name, so borrow that.

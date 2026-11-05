@@ -1134,11 +1134,11 @@ namespace Vzor
 
                 try
                 {
-                    info.Category = Categorize(root.GetType().Name);
+                    info.Category = ToCategory(ItemCategories.Of(root));
                 }
                 catch
                 {
-                    // no runtime type, leave as other
+                    // template chain not ready, leave as other
                 }
             }
 
@@ -1168,27 +1168,21 @@ namespace Vzor
             return info;
         }
 
-        // eft item classes are the taxonomy: Weapon, Ammo, Meds, FoodDrink, Key, BarterItem,
-        // Armor, Backpack, Mod. substring match because some are nested and name-mangled.
-        private static Category Categorize(string typeName)
+        // the categories come from the template tree now, this is just the enum mapping
+        private static Category ToCategory(string category)
         {
-            if (string.IsNullOrEmpty(typeName)) return Category.Other;
-
-            if (Has(typeName, "Weapon") || Has(typeName, "Knife") || Has(typeName, "ThrowWeap"))
-                return Category.Weapon;
-            if (Has(typeName, "Ammo")) return Category.Ammo;
-            if (Has(typeName, "Meds") || Has(typeName, "MedKit") || Has(typeName, "Medical"))
-                return Category.Medical;
-            if (Has(typeName, "FoodDrink") || Has(typeName, "Food")) return Category.Food;
-            if (Has(typeName, "Key")) return Category.Key;
-            if (Has(typeName, "Armor") || Has(typeName, "Backpack") || Has(typeName, "Vest") ||
-                Has(typeName, "Rig") || Has(typeName, "Helmet"))
-                return Category.Gear;
-            if (Has(typeName, "Barter") || Has(typeName, "SpecItem") || Has(typeName, "Valuables"))
-                return Category.Barter;
-            if (Has(typeName, "Mod")) return Category.Mods;
-
-            return Category.Other;
+            switch (category)
+            {
+                case "weapon": return Category.Weapon;
+                case "ammo": return Category.Ammo;
+                case "medical": return Category.Medical;
+                case "food": return Category.Food;
+                case "key": return Category.Key;
+                case "gear": return Category.Gear;
+                case "mod": return Category.Mods;
+                case "barter": return Category.Barter;
+                default: return Category.Other;
+            }
         }
 
         private static bool Has(string text, string needle)

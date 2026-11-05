@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.4
+
+- **Loot categories actually work again.** Both the in-game ESP and the web loot table classified items by the client's runtime class name, and 1.2 flattened almost everything to `Item`, so half the map fell into "other". The web feed had a second bug on top: it asked the world object (`LootItem`) for its type, which is the same string for every entry. Categories now come from walking the item template tree to the category node: Weapon, Knife and ThrowWeap to weapon, Ammo to ammo, Meds to medical, FoodDrink to food, Key to key, Mod to mods, BarterItem, SpecItem and Money to barter, and the Equipment branch (ArmoredEquipment, Backpack, TacticalVest, Helmet and friends) to gear.
+
 ## 0.7.3
 
 - **Loot favourites.** A star on every loot table row keeps that item name on the map, drawn as a gold diamond, whether or not you have the panel open and whether or not the item is selected. Favourites are name based so they carry across raids, and they persist in browser storage.
