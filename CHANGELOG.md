@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.9
+
+- **Dad Gamer Mode is local only.** The clamp never checked whose health controller it was looking at, and offline SPT simulates bots with the same `ActiveHealthController`, so every bot's head and chest were floored at 1 HP too. That is also why the magic bullet stopped killing things. Every patch now compares the controller against the local player's.
+- **Bleeds and limb damage are untouched.** An earlier attempt skipped distributed damage entirely, which stopped bleeds from hurting at all. That is reverted: damage over time still drains you and still blacks out arms and legs. Only the flip to dead is swallowed, by a prefix on the `IsAlive` setter, and only for the local player.
+- **Both death paths are logged.** `[dad] clamped <part> from X to 1.0` for the damage clamp and `[dad] blocked death` for the death guard, plus `[dad] died: <EDamageType>` if something still gets through. If a death line appears without a matching clamp, the log names the damage type that caused it.
+
 ## 0.7.8
 
 - **Dad Gamer Mode also protects `Common`.** That is the pool explosions, falls and scripted damage go through; leaving it out is how you can still be killed by a grenade with both vitals sitting at 1 HP. Head, thorax and the common pool are now all floored at 1 and healed back if something gets past the clamp.
