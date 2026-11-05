@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.3
+
+- **Loot favourites.** A star on every loot table row keeps that item name on the map, drawn as a gold diamond, whether or not you have the panel open and whether or not the item is selected. Favourites are name based so they carry across raids, and they persist in browser storage.
+- **Containers are searched, not just floors.** Every `LootableContainer` on the map is walked once per raid, 25 per frame so a map with hundreds of them does not stall, cached, and rebuilt every 90 seconds to catch anything looted. Served on `/containers`. A container holding a favourite draws as a gold ring with the item names beside it, which is what makes a safe or a cash register worth walking to.
+- The loot feed now polls with the panel closed, every 30 seconds, because favourites are drawn from it.
+
 ## 0.7.2
 
 - **Raid found banner.** The browser map pulses "Raid Found, Loading..." across the screen while a raid exists but no layer has reached the canvas yet, with the location id underneath. It clears as soon as the art draws, and gives up after twelve seconds so an unrenderable location cannot pulse forever. This also replaces the silent blank canvas on a location with no art folder.

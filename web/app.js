@@ -612,6 +612,69 @@ function draw() {
 
   if (typeof state.x === "number") drawSelf();
 
+  // favourites stay on the map whether or not you picked them, that is the whole point
+  if (currentLayer && lootFavorites.size) {
+    ctx.font = "11px Segoe UI, sans-serif";
+    ctx.textAlign = "left";
+
+    for (const item of lootItems) {
+      if (!lootFavorites.has(lootFavKey(item.n))) continue;
+
+      const s = project(item.x, item.z);
+      if (s.x < -60 || s.x > canvas.width + 60 || s.y < -30 || s.y > canvas.height + 30) continue;
+
+      ctx.beginPath();
+      ctx.moveTo(s.x, s.y - 6);
+      ctx.lineTo(s.x + 6, s.y);
+      ctx.lineTo(s.x, s.y + 6);
+      ctx.lineTo(s.x - 6, s.y);
+      ctx.closePath();
+      ctx.strokeStyle = "#ffd23b";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = "#0b0e12cc";
+      ctx.strokeText(item.n, s.x + 9, s.y - 4);
+      ctx.fillStyle = "#ffd23b";
+      ctx.fillText(item.n, s.x + 9, s.y - 4);
+    }
+  }
+
+  // favourites that are sitting inside something, marked on the container itself
+  if (currentLayer && lootFavorites.size && containerItems.length) {
+    ctx.font = "11px Segoe UI, sans-serif";
+    ctx.textAlign = "left";
+
+    for (const c of containerItems) {
+      let hits = null;
+
+      for (const name of (c.i || [])) {
+        if (!lootFavorites.has(lootFavKey(name))) continue;
+        if (!hits) hits = [];
+        hits.push(name);
+      }
+
+      if (!hits) continue;
+
+      const s = project(c.x, c.z);
+      if (s.x < -60 || s.x > canvas.width + 60 || s.y < -30 || s.y > canvas.height + 30) continue;
+
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, 9, 0, Math.PI * 2);
+      ctx.strokeStyle = "#ffd23b";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      const label = hits.join(", ");
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = "#0b0e12cc";
+      ctx.strokeText(label, s.x + 12, s.y + 4);
+      ctx.fillStyle = "#ffd23b";
+      ctx.fillText(label, s.x + 12, s.y + 4);
+    }
+  }
+
   // whatever was picked in the loot table, kept on the map until you pick something else
   if (selectedLoot && currentLayer) {
     const s = project(selectedLoot.x, selectedLoot.z);
@@ -1546,6 +1609,59 @@ let raidEndedAt = 0;
 let lootItems = [];
 let selectedLoot = null;
 
+// names you want on the map no matter what. by name, not by position, because loot moves every
+// raid and a pin to one graphics card is worthless next time.
+let lootFavorites = new Set();
+
+function lootFavKey(name) {
+  return String(name || "").trim().toLowerCase();
+}
+
+function loadLootFavorites() {
+  try {
+    const raw = localStorage.getItem("vzor.lootfav.v1");
+    if (raw) lootFavorites = new Set(JSON.parse(raw).map(lootFavKey));
+  } catch (e) {
+    lootFavorites = new Set();
+  }
+}
+
+function saveLootFavorites() {
+  try {
+    localStorage.setItem("vzor.lootfav.v1", JSON.stringify([...lootFavorites]));
+  } catch (e) {
+    // private mode, favourites just will not persist
+  }
+}
+
+// containers and what they hold, kept in step with the loot poll
+let containerItems = [];
+let containerTimer = null;
+
+async function fetchContainers() {
+  try {
+    const r = await fetch("/containers", { cache: "no-store" });
+    if (!r.ok) return;
+
+    containerItems = await r.json();
+    draw();
+  } catch (e) {
+    // older plugin builds have no endpoint, favourites just stay loose loot only
+  }
+}
+
+function toggleLootFavorite(name) {
+  const key = lootFavKey(name);
+  if (!key) return;
+
+  if (lootFavorites.has(key)) lootFavorites.delete(key);
+  else lootFavorites.add(key);
+
+  saveLootFavorites();
+  renderLoot();
+  draw();
+}
+
 function lootCategory(type) {
   const s = (type || "").toLowerCase();
 
@@ -1621,8 +1737,12 @@ function renderLoot() {
 
   let html = "";
   for (const item of shown) {
+    const fav = lootFavorites.has(lootFavKey(item.n));
+
     html += '<div class="lootrow" data-x="' + item.x + '" data-z="' + item.z +
       '" data-n="' + escapeHtml(item.n || "?") + '" data-p="' + (item.p || 0) + '">' +
+      '<span class="fav' + (fav ? " on" : "") + '" data-fav="' + escapeHtml(item.n || "") +
+      '" title="keep this on the map">&#9733;</span>' +
       '<span class="name">' + escapeHtml(item.n || "?") + '</span>' +
       '<span class="price">' + (item.p ? item.p.toLocaleString() : "-") + '</span>' +
       '<span class="dist">' + Math.round(item.d) + 'm</span>' +
@@ -1677,14 +1797,26 @@ function scheduleLootRefresh() {
   stopLootRefresh();
 
   lootRefreshTimer = setInterval(() => {
-    if (lootOpen) fetchLoot(0);
+    // not gated on the panel any more, favourites are drawn from this feed
+    fetchLoot(0);
   }, LOOT_REFRESH_MS);
+
+  // container contents are fixed at raid start, a slow poll is plenty
+  fetchContainers();
+
+  if (containerTimer) clearInterval(containerTimer);
+  containerTimer = setInterval(fetchContainers, 60000);
 }
 
 function stopLootRefresh() {
   if (lootRefreshTimer) {
     clearInterval(lootRefreshTimer);
     lootRefreshTimer = null;
+  }
+
+  if (containerTimer) {
+    clearInterval(containerTimer);
+    containerTimer = null;
   }
 }
 
@@ -1696,6 +1828,7 @@ function setLootOpen(open) {
 }
 
 function bindLoot() {
+  loadLootFavorites();
   document.getElementById("loot").addEventListener("click", () => setLootOpen(!lootOpen));
   document.getElementById("lootclose").addEventListener("click", () => setLootOpen(false));
   document.getElementById("lootrefresh").addEventListener("click", () => fetchLoot(0));
@@ -1705,6 +1838,12 @@ function bindLoot() {
   document.getElementById("lootsort").addEventListener("change", renderLoot);
 
   document.getElementById("lootrows").addEventListener("click", e => {
+    const star = e.target.closest(".fav");
+    if (star) {
+      toggleLootFavorite(star.dataset.fav);
+      return;
+    }
+
     const row = e.target.closest(".lootrow[data-x]");
     if (!row || !currentLayer) return;
 

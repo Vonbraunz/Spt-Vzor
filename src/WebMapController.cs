@@ -41,6 +41,15 @@ namespace Vzor
         private string _lootJson = "[]";
         private DateTime _lootWantedUntil = DateTime.MinValue;
         private string _exfilJson = "[]";
+        // container contents are fixed when the raid is built, so one full walk shortly after
+        // start is enough. spread across frames because hundreds of inventory reads in a single
+        // tick is a visible stall, and rebuillt slowly afterwards to catch anything you looted.
+        private readonly List<EFT.Interactive.LootableContainer> _containerQueue = new List<EFT.Interactive.LootableContainer>();
+        private readonly List<string> _containerParts = new List<string>();
+        private int _containerCursor;
+        private bool _containerScanning;
+        private float _nextContainerRebuild;
+        private string _containerJson = "[]";
 
         // entity key -> where it was last seen alive. when a key stops appearing, that last
         // position becomes an x on the map.
@@ -93,6 +102,13 @@ namespace Vzor
                     _trackedWorld = world;
                     _seen.Clear();
                     _dead.Clear();
+
+                    _containerQueue.Clear();
+                    _containerParts.Clear();
+                    _containerCursor = 0;
+                    _containerScanning = false;
+                    _nextContainerRebuild = 0f;
+                    _containerJson = "[]";
                 }
 
                 // exfils move about as often as the weather, so they get their own slower timer
@@ -117,6 +133,8 @@ namespace Vzor
                     _nextQuestContainer = now + 30f;
                     _questContainerJson = world != null ? BuildQuestContainers(world) : "[]";
                 }
+
+                PumpContainerScan(world, now);
 
                 // transits are fixed for the raid, so they get a slow timer and no per-tick cost
                 if (now >= _nextTransit)
@@ -257,6 +275,12 @@ namespace Vzor
                 {
                     _lootWantedUntil = DateTime.UtcNow.AddSeconds(10);
                     RespondText(stream, _lootJson, "application/json");
+                    return;
+                }
+
+                if (path == "/containers")
+                {
+                    RespondText(stream, _containerJson, "application/json");
                     return;
                 }
 
@@ -723,6 +747,136 @@ namespace Vzor
         // what is inside the containers on this map, but only items an active quest wants.
         // reading a container's inventory is cheap once and expensive across a whole map, hence
         // the thirty second timer and the cap.
+        // walks every container once per raid and caches what is inside. contents do not change
+        // unless you loot them, so this runs a handful of containers per frame and then refreshes
+        // slowly. the page needs this for favourites that hide inside safes and registers.
+        private void PumpContainerScan(GameWorld world, float now)
+        {
+            if (world == null)
+            {
+                _containerJson = "[]";
+                return;
+            }
+
+            if (!_containerScanning)
+            {
+                if (now < _nextContainerRebuild) return;
+
+                _containerQueue.Clear();
+                _containerParts.Clear();
+                _containerCursor = 0;
+
+                try
+                {
+                    var list = world.LootList;
+                    if (list != null)
+                    {
+                        for (var i = 0; i < list.Count; i++)
+                        {
+                            try
+                            {
+                                var entry = list[i];
+                                if (entry == null) continue;
+
+                                var container = entry.TryCast<EFT.Interactive.LootableContainer>();
+                                if (container != null) _containerQueue.Add(container);
+                            }
+                            catch
+                            {
+                                // entry mid update
+                            }
+                        }
+                    }
+                }
+                catch
+                {
+                    // loot list rebuilding
+                }
+
+                _containerScanning = true;
+                _nextContainerRebuild = now + 90f;
+                return;
+            }
+
+            // 25 a frame keeps the hitch off the main thread on a map with hundreds of them
+            var budget = 25;
+
+            while (budget-- > 0 && _containerCursor < _containerQueue.Count)
+            {
+                try
+                {
+                    var json = BuildContainerEntry(_containerQueue[_containerCursor]);
+                    if (!string.IsNullOrEmpty(json)) _containerParts.Add(json);
+                }
+                catch
+                {
+                    // container mid update
+                }
+
+                _containerCursor++;
+            }
+
+            if (_containerCursor >= _containerQueue.Count)
+            {
+                _containerScanning = false;
+                _containerJson = "[" + string.Join(",", _containerParts.ToArray()) + "]";
+            }
+        }
+
+        private static string BuildContainerEntry(EFT.Interactive.LootableContainer container)
+        {
+            if (container == null) return null;
+
+            var owner = container.ItemOwner;
+            if (owner == null) return null;
+
+            var root = owner.RootItem;
+            if (root == null) return null;
+
+            var names = new List<string>();
+
+            try
+            {
+                var items = EFT.InventoryLogic.ItemExtensions.GetAllItems(root);
+                if (items == null) return null;
+
+                var enumerator = items.GetEnumerator();
+                while (names.Count < 12 && enumerator.MoveNext())
+                {
+                    var child = enumerator.Current;
+                    if (child == null) continue;
+
+                    var id = child.StringTemplateId;
+                    if (string.IsNullOrEmpty(id)) continue;
+
+                    var name = LootEspController.ResolveName(id, child, child.Name);
+                    if (!string.IsNullOrEmpty(name)) names.Add(name);
+                }
+            }
+            catch
+            {
+                return null;
+            }
+
+            if (names.Count == 0) return null;
+
+            var position = container.transform.position;
+
+            var sb = new StringBuilder();
+            sb.Append("{\"x\":").Append(Num(position.x));
+            sb.Append(",\"z\":").Append(Num(position.z));
+            sb.Append(",\"i\":[");
+
+            for (var i = 0; i < names.Count; i++)
+            {
+                if (i > 0) sb.Append(',');
+                sb.Append('"').Append(JsonEscape(names[i])).Append('"');
+            }
+
+            sb.Append("]}");
+            return sb.ToString();
+        }
+
         private string BuildQuestContainers(GameWorld world)
         {
             var sb = new StringBuilder("[");

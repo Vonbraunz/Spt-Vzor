@@ -47,6 +47,7 @@ A live map of the current raid in your browser, served by the plugin on loopback
 - Map art for every playable location. Floors are picked from building footprints first and from height when exactly one layer claims it, stacked over the ground map with the base dimmed so the floor you are on stands out.
 - Place names from the map config, drawn behind the live data.
 - **Loot table**: every loose item in the raid with name, price and distance, filterable by category and searchable by name, sorted by price, name or distance. Click a row to mark it on the map. Refreshes every 30 seconds while the raid lasts.
+- **Favourites**: star an item in the loot table and every copy of it stays on the map as a gold diamond, loose or inside a container. Containers holding one get a gold ring with the item name beside it, because a safe with a LEDX in it is worth more than the LEDX-shaped dot it would otherwise be. Favourites are by name, so they follow you between raids.
 - **Quest markers**: quest items on the floor, containers holding them, and quest zones, each behind a toggle.
 - **Quest panel**: active quests for this map only, with the items you are still short of.
 - **Contacts panel**: players, bosses, followers, raiders, rogues and cultists, sorted by distance, click to centre.

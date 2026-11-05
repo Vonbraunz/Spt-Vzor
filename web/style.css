@@ -149,7 +149,7 @@ html, body {
 
 .lootrow {
   display: grid;
-  grid-template-columns: 1fr 96px 54px;
+  grid-template-columns: 18px 1fr 96px 54px;
   gap: 6px;
   padding: 2px 4px;
   border-radius: 3px;
@@ -287,4 +287,18 @@ html, body {
 @keyframes loadflash {
   0%, 100% { opacity: 0.2; }
   50% { opacity: 1; }
+}
+
+.lootrow .fav {
+  color: #4a5563;
+  text-align: center;
+  cursor: pointer;
+  user-select: none;
+}
+
+.lootrow .fav:hover { color: #ffd23b; }
+
+.lootrow .fav.on {
+  color: #ffd23b;
+  text-shadow: 0 0 6px #ffd23b66;
 }
