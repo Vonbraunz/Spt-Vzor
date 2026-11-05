@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.7.16
+
+- **The ten second beat is gone.** 0.7.15's capture is clean at the old rhythm: p50 16.7 ms, p99 28 ms, and the only spikes in sixty seconds are at 9.5 s and 33.6 s, twenty four seconds apart. No periodic stall.
+- **The quest data build now runs once and stays cached.** The first build is 172.1 ms, split as 111.4 candidates, 42.4 filter and 14.8 carried. After that it does not appear in the log at all, which is the cache holding.
+- **Quest containers are incremental.** The remaining spike at 33.6 s was `BuildQuestContainers`, which walked the entire loot list and read every container inventory in one go on its thirty second timer. It now rides the container queue the map already builds, twenty five inventories a frame, and logs `[timing] web map quest containers` when a pass is slow.
+- The `[timing] esp scan` lines in this capture are load time, not gameplay: the menu had an empty loot list, so every scan was 0 markers and 0 containers while the scene settled. In-raid numbers are what matter and the ESP was not exercised here.
+
 ## 0.7.15
 
 - **The ten second beat is the web map quest build.** With the ESP off, `[timing] web map quest data` reports 397.9 ms on the first build and 67 to 74 ms on every one after, and the capture shows the matching 83 to 90 ms frame stalls at exactly ten second intervals. The `FindObjectsOfType` sweeps were not the cost, the quest walk was.

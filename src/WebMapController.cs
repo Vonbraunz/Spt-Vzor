@@ -35,6 +35,9 @@ namespace Vzor
         private float _nextQuest;
         private string _questJson = "{\"items\":[],\"quests\":[],\"zones\":[],\"loot\":[],\"containers\":[]}";
         private string _questContainerJson = "[]";
+        private int _questContainerCursor = -1;
+        private readonly List<string> _questContainerParts = new List<string>();
+        private long _questContainerPassAt;
         private float _nextQuestContainer;
         private readonly HashSet<string> _wantedQuestItems = new HashSet<string>();
         private string _transitJson = "[]";
@@ -105,6 +108,8 @@ namespace Vzor
 
                     _questCandidates = null;
                     _questCandidateCount = -1;
+                    _questContainerCursor = -1;
+                    _questContainerParts.Clear();
 
                     _containerQueue.Clear();
                     _containerParts.Clear();
@@ -132,12 +137,27 @@ namespace Vzor
                     LogTiming("quest data", started);
                 }
 
-                // walking container inventories is the expensive part, so it runs less often
+                // walking container inventories is the expensive part, so it runs less often and
+                // a handful of containers at a time. thirty seconds of staleness on a quest item
+                // count nobody is staring at is cheaper than an eighty millisecond spike.
                 if (now >= _nextQuestContainer)
                 {
                     _nextQuestContainer = now + 30f;
-                    _questContainerJson = world != null ? BuildQuestContainers(world) : "[]";
+
+                    if (world == null || _wantedQuestItems.Count == 0)
+                    {
+                        _questContainerJson = "[]";
+                        _questContainerCursor = -1;
+                    }
+                    else
+                    {
+                        _questContainerParts.Clear();
+                        _questContainerCursor = 0;
+                        _questContainerPassAt = System.Diagnostics.Stopwatch.GetTimestamp();
+                    }
                 }
+
+                PumpQuestContainers();
 
                 PumpContainerScan(world, now);
 
@@ -890,93 +910,93 @@ namespace Vzor
             return sb.ToString();
         }
 
-        private string BuildQuestContainers(GameWorld world)
+        // quest containers used to be one synchronous walk of the whole loot list, which is an
+        // eighty millisecond spike every thirty seconds on a loaded map. it now rides the same
+        // container queue the map already builds, twenty five inventories a frame.
+        private void PumpQuestContainers()
         {
-            var sb = new StringBuilder("[");
-            var first = true;
+            if (_questContainerCursor < 0) return;
 
             if (_wantedQuestItems.Count == 0)
             {
-                sb.Append(']');
-                return sb.ToString();
+                _questContainerJson = "[]";
+                _questContainerCursor = -1;
+                return;
             }
 
-            var wanted = new HashSet<string>(_wantedQuestItems);
+            // the queue is filled by the container scan. if it has not filled yet there is nothing
+            // to walk, and waiting a frame costs nothing.
+            if (_containerQueue.Count == 0) return;
+
+            var budget = 25;
+
+            while (budget-- > 0 && _questContainerCursor < _containerQueue.Count)
+            {
+                try
+                {
+                    var json = BuildQuestContainerEntry(_containerQueue[_questContainerCursor]);
+                    if (!string.IsNullOrEmpty(json)) _questContainerParts.Add(json);
+                }
+                catch
+                {
+                    // container mid update
+                }
+
+                _questContainerCursor++;
+            }
+
+            if (_questContainerCursor < _containerQueue.Count) return;
+
+            _questContainerCursor = -1;
+            _questContainerJson = "[" + string.Join(",", _questContainerParts.ToArray()) + "]";
+
+            LogTiming("quest containers", _questContainerPassAt);
+        }
+
+        private string BuildQuestContainerEntry(LootableContainer container)
+        {
+            if (container == null) return null;
+
+            var owner = container.ItemOwner;
+            if (owner == null) return null;
+
+            var root = owner.RootItem;
+            if (root == null) return null;
+
+            var names = new List<string>();
 
             try
             {
-                var list = world.LootList;
-                if (list != null)
+                var items = EFT.InventoryLogic.ItemExtensions.GetAllItems(root);
+                if (items == null) return null;
+
+                var enumerator = items.GetEnumerator();
+                while (enumerator.MoveNext())
                 {
-                    var found = 0;
+                    var child = enumerator.Current;
+                    if (child == null) continue;
 
-                    for (var i = 0; i < list.Count && found < 200; i++)
-                    {
-                        LootableContainer container = null;
+                    var id = child.StringTemplateId;
+                    if (string.IsNullOrEmpty(id) || !_wantedQuestItems.Contains(id)) continue;
 
-                        try
-                        {
-                            var entry = list[i];
-                            if (entry != null) container = entry.TryCast<LootableContainer>();
-                        }
-                        catch
-                        {
-                            continue;
-                        }
-
-                        if (container == null) continue;
-
-                        var owner = container.ItemOwner;
-                        if (owner == null) continue;
-
-                        var root = owner.RootItem;
-                        if (root == null) continue;
-
-                        var names = new List<string>();
-
-                        try
-                        {
-                            var items = EFT.InventoryLogic.ItemExtensions.GetAllItems(root);
-                            if (items == null) continue;
-
-                            var enumerator = items.GetEnumerator();
-                            while (enumerator.MoveNext())
-                            {
-                                var child = enumerator.Current;
-                                if (child == null) continue;
-
-                                var id = child.StringTemplateId;
-                                if (string.IsNullOrEmpty(id) || !wanted.Contains(id)) continue;
-
-                                var name = LootEspController.ResolveName(id, child, child.Name);
-                                if (!string.IsNullOrEmpty(name)) names.Add(name);
-                            }
-                        }
-                        catch
-                        {
-                            continue;
-                        }
-
-                        if (names.Count == 0) continue;
-
-                        var position = container.transform.position;
-                        if (!first) sb.Append(',');
-                        first = false;
-                        found++;
-
-                        sb.Append("{\"x\":").Append(Num(position.x));
-                        sb.Append(",\"z\":").Append(Num(position.z));
-                        sb.Append(",\"n\":\"").Append(JsonEscape(string.Join(", ", names.ToArray()))).Append('"');
-                        sb.Append('}');
-                    }
+                    var name = LootEspController.ResolveName(id, child, child.Name);
+                    if (!string.IsNullOrEmpty(name)) names.Add(name);
                 }
             }
             catch
             {
-                // loot list mid update
+                return null;
             }
 
-            sb.Append(']');
+            if (names.Count == 0) return null;
+
+            var position = container.transform.position;
+
+            var sb = new StringBuilder();
+            sb.Append("{\"x\":").Append(Num(position.x));
+            sb.Append(",\"z\":").Append(Num(position.z));
+            sb.Append(",\"n\":\"").Append(JsonEscape(string.Join(", ", names.ToArray()))).Append('"');
+            sb.Append('}');
             return sb.ToString();
         }
 
