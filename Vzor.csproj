@@ -4,7 +4,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <AssemblyName>Vzor</AssemblyName>
     <RootNamespace>Vzor</RootNamespace>
-    <Version>0.7.6</Version>
+    <Version>0.7.7</Version>
     <LangVersion>latest</LangVersion>
     <Nullable>disable</Nullable>
     <ImplicitUsings>disable</ImplicitUsings>
@@ -50,6 +50,10 @@
   </ItemGroup>
 
   <ItemGroup Label="Game + Unity interop">
+    <Reference Include="PlayerEnums">
+      <HintPath>$(GameDir)\BepInEx\interop\PlayerEnums.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <Reference Include="Il2Cppmscorlib">
       <HintPath>$(GameDir)\BepInEx\interop\Il2Cppmscorlib.dll</HintPath>
       <Private>false</Private>

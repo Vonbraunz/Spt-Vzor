@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.7
+
+- **Dad Gamer Mode.** A new `QoL` toggle: the head and the thorax cannot be blacked out. Damage that would take either part below 1 HP is trimmed so it lands on exactly 1, so the hit still staggers and bleeds you but cannot kill you through the two death parts. Everything else still breaks normally. A per-frame sweep heals either part back to 1 if something gets past the damage clamp (a bleed tick, distributed damage, a wound you loaded in with), because that cannot resurrect you if death already fired in the same frame.
+- The patch sits on `ActiveHealthController.ApplyDamage`, which 5.0 still exposes with the same `(EBodyPart, float, DamageInfo)` signature, and `EBodyPart` came from `PlayerEnums.dll`, now referenced.
+
 ## 0.7.6
 
 - **No Sway, take two.** Disabling the walk and hand shake effectors and zeroing `MotionReact.SwayFactors` got most of the strafe movement but left a slight side to side, because the motion effector integrates velocity and acceleration into its own `Motion` value each frame. It now clears that whole state as well: motion, velocity, position and rotation velocity, both accelerations. The force effector's random wiggle is zeroed too, and so are the PWA's own sway strength and factor, since those are re-derived every frame.

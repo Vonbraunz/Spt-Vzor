@@ -26,6 +26,8 @@ namespace Vzor
 
             if (Plugin.QolNoSway.Value) ApplyNoSway();
             else RestoreNoSway();
+
+            if (Plugin.QolDadMode.Value) DadMode.Pin(_player.ActiveHealthController);
         }
 
         private bool _swaySuppressed;

@@ -15,7 +15,7 @@ namespace Vzor
     public class Plugin : BasePlugin
     {
         public const string Guid = "local.vzor";
-        public const string Version = "0.7.6";
+        public const string Version = "0.7.7";
 
         internal static ManualLogSource Logger;
         internal static ConfigFile File;
@@ -107,6 +107,7 @@ namespace Vzor
         internal static ConfigEntry<bool> QolInstantSearch;
         internal static ConfigEntry<KeyCode> DoorUnlockKey;
         internal static ConfigEntry<float> DoorUnlockRadius;
+        internal static ConfigEntry<bool> QolDadMode;
         internal static ConfigEntry<bool> DoorUnlockOpen;
         internal static ConfigEntry<bool> DoorUnlockDebug;
         internal static ConfigEntry<bool> AimEnabled;
@@ -341,6 +342,9 @@ namespace Vzor
             QolInstantSearch = Config.Bind("QoL", "Instant Search", false,
                 "mark container contents as already known and searched, so they are revealed on open. ported from asler's SPT-LootInstantSearch.");
 
+            QolDadMode = Config.Bind("QoL", "Dad Gamer Mode", false,
+                "the head and thorax stop at 1 hp, so neither can black out and kill you. everything else can still break, and you can still bleed.");
+
             DoorUnlockKey = Config.Bind("Doors", "Unlock Key", KeyCode.KeypadPeriod,
                 "tap this to unlock every locked door within range. numpad dot by default, because everything near the left hand is already busy.");
             DoorUnlockRadius = Config.Bind("Doors", "Unlock Radius", 15f,
@@ -496,6 +500,9 @@ namespace Vzor
                 {
                     Logger.LogWarning("sway settings patch skipped, method not found");
                 }
+
+                if (DadMode.Clamp(harmony)) Logger.LogInfo("dad mode patch applied");
+                else Logger.LogWarning("dad mode patch skipped, ApplyDamage not found");
 
                 var magicMethod = HarmonyLib.AccessTools.Method(
                     typeof(EFT.Player.FirearmController), "InitiateShot");

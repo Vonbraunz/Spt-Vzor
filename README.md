@@ -77,6 +77,7 @@ A live map of the current raid in your browser, served by the plugin on loopback
 | No Sway | Zeroes the breath effector's intensity | ADS still works |
 | No Malfunction | Clears jam, misfire, slide, feed and overheat flags on the weapon template | Applies per weapon type |
 | Instant Search | Marks contents as known and refreshes the container view | Ported from asler's SPT-LootInstantSearch, see credits |
+| Dad Gamer Mode | Head and thorax stop at 1 HP, so neither can black out and kill you | Chest and head hits still hurt, stagger and bleed; other parts break normally |
 
 ### Doors
 
