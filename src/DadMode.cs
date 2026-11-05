@@ -34,6 +34,18 @@ namespace Vzor
                         System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)));
             }
 
+            // kill is the last door. some things do not damage you, they just declare you dead,
+            // and a trap that does that walks past the clamp, the destroy guard and everything
+            // else. refuse the declaration too.
+            var kill = AccessTools.Method(typeof(ActiveHealthController), nameof(ActiveHealthController.Kill));
+
+            if (kill != null)
+            {
+                harmony.Patch(kill, prefix: new HarmonyMethod(
+                    typeof(DadModePatch).GetMethod(nameof(DadModePatch.KillPrefix),
+                        System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)));
+            }
+
             // no IsAlive patch here on purpose. that setter is declared on the generic base and
             // harmony refuses to patch it through a closed subclass, which throws and takes every
             // later registration down with it. DestroyBodyPart is the hook that matters anyway.
@@ -54,6 +66,15 @@ namespace Vzor
             try
             {
                 controller.DiedEvent += OnDied;
+
+                // one line per raid that says whether the game thinks this controller is ours.
+                // if this ever prints "not you", the local check below is the reason dad mode
+                // looks asleep.
+                var who = controller.Player == null
+                    ? "null"
+                    : (controller.Player.IsYourPlayer ? "you" : "not you");
+
+                Plugin.Logger.LogInfo("[dad] watching controller, player=" + who);
             }
             catch (Exception e)
             {
@@ -95,7 +116,9 @@ namespace Vzor
         {
             if (!Plugin.QolDadMode.Value) return;
             if (damage <= 0f) return;
-            if (bodyPart != EBodyPart.Head && bodyPart != EBodyPart.Chest) return;
+            // common is where blast and fall damage lands, and leaving it out is how a claymore
+            // still killed you with both vitals sitting at 1.
+            if (bodyPart != EBodyPart.Head && bodyPart != EBodyPart.Chest && bodyPart != EBodyPart.Common) return;
             if (!IsLocal(__instance)) return;
 
             try
@@ -119,10 +142,12 @@ namespace Vzor
             }
         }
 
-        private static float _nextDotLog;
 
         // bots are simulated with the same health controller in offline spt, so every clamp has to
         // prove it is looking at the local player first. without this you also make bots immortal.
+        private static bool _diagHit;
+        private static bool _diagMiss;
+
         private static bool IsLocal(ActiveHealthController instance)
         {
             if (instance == null) return false;
@@ -132,47 +157,59 @@ namespace Vzor
                 // the controller already knows which player it belongs to. comparing pointers to
                 // MainPlayer was a guess that bots made expensive.
                 var player = instance.Player;
-                return player != null && player.IsYourPlayer;
+
+                if (player != null && player.IsYourPlayer)
+                {
+                    Diag(ref _diagHit, "[dad] local check hit (IsYourPlayer)");
+                    return true;
+                }
+
+                // offline there is exactly one human in the raid, so a non ai controller is you
+                // even when the flag has not been set yet. this is the fallback that keeps dad
+                // mode from quietly doing nothing.
+                if (player != null && !player.IsAI)
+                {
+                    Diag(ref _diagHit, "[dad] local check hit (not ai)");
+                    return true;
+                }
+
+                Diag(ref _diagMiss, "[dad] local check missed: player=" +
+                    (player == null ? "null" : (player.IsAI ? "ai" : "human")) +
+                    ", we still let the damage through");
+
+                return false;
             }
-            catch
+            catch (Exception e)
             {
+                Diag(ref _diagMiss, "[dad] local check threw: " + e.Message);
                 return false;
             }
         }
 
-        // skipping the tick entirely is heavy handed, but the alternative is arithmetic on a rate
-        // that applies to every body part at once. dad mode is already a cheat.
-        // a destroyed head or chest is the normal death. refuse it, and keep the part at 1 hp so the
-        // ui does not show a blacked vital either.
-        internal static bool DestroyPrefix(ActiveHealthController __instance, EBodyPart bodyPart)
+        // one line each way, per session. enough to tell "dad mode is asleep" apart from
+        // "dad mode is awake and the damage never came through ApplyDamage".
+        private static void Diag(ref bool flag, string line)
         {
-            if (!Plugin.QolDadMode.Value) return true;
-            // common covers blast and fall deaths, which do not go through a limb or the chest
-            if (bodyPart != EBodyPart.Head && bodyPart != EBodyPart.Chest && bodyPart != EBodyPart.Common) return true;
-            if (!IsLocal(__instance)) return true;
-
-            try
-            {
-                var health = __instance.GetBodyPartHealth(bodyPart, false);
-                if (health.Current < 1f) __instance.Heal(bodyPart, 1f - health.Current);
-            }
-            catch
-            {
-                // sweep next frame
-            }
-
-            return false;
+            if (flag) return;
+            flag = true;
+            Plugin.Logger.LogInfo(line);
         }
 
-        // only the flip to dead is swallowed, and only for the local player. everything that leads
-        // there still happens: hp drops, limbs black, bleeds tick, the screen goes red.
-        internal static bool IsAlivePrefix(ActiveHealthController __instance, bool value)
+        // mine blasts and scripted traps often skip the damage pipeline and just call kill.
+        private static float _nextKillLog;
+
+        internal static bool KillPrefix(ActiveHealthController __instance, EDamageType damageType)
         {
             if (!Plugin.QolDadMode.Value) return true;
-            if (value) return true;
             if (!IsLocal(__instance)) return true;
 
-            Plugin.Logger.LogInfo("[dad] blocked death");
+            var now = UnityEngine.Time.unscaledTime;
+
+            if (now > _nextKillLog)
+            {
+                _nextKillLog = now + 5f;
+                Plugin.Logger.LogInfo("[dad] refused kill (" + damageType + ")");
+            }
 
             try
             {
@@ -185,5 +222,33 @@ namespace Vzor
 
             return false;
         }
+
+        // a destroyed head or chest is the normal death. refuse it, and keep the part at 1 hp so the
+        // ui does not show a blacked vital either.
+        internal static bool DestroyPrefix(ActiveHealthController __instance, EBodyPart bodyPart, EDamageType damageType)
+        {
+            if (!Plugin.QolDadMode.Value) return true;
+            // common covers blast and fall deaths, which do not go through a limb or the chest.
+            // stomach matches the original mod's critical list.
+            if (bodyPart != EBodyPart.Head && bodyPart != EBodyPart.Chest &&
+                bodyPart != EBodyPart.Common && bodyPart != EBodyPart.Stomach) return true;
+            if (!IsLocal(__instance)) return true;
+
+            try
+            {
+                var health = __instance.GetBodyPartHealth(bodyPart, false);
+                if (health.Current < 1f) __instance.Heal(bodyPart, 1f - health.Current);
+
+                Plugin.Logger.LogInfo("[dad] refused destroy " + bodyPart + " (" + damageType +
+                                      ") at " + health.Current.ToString("0.0"));
+            }
+            catch
+            {
+                // sweep next frame
+            }
+
+            return false;
+        }
+
     }
 }

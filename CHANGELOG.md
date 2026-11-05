@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.7.12
+
+- **The blast pool is clamped too.** `ApplyDamage` now trims damage to `Common` as well as `Head` and `Chest`. `Common` is where explosion and fall damage lands, which is why a claymore still killed you while both vitals sat at 1. The heal sweep already pinned it; the hit path did not.
+- **`Kill` is refused.** Some things do not damage you, they just declare you dead, and that call walks past both other guards. A prefix on `ActiveHealthController.Kill` refuses it for the local player, remembers the `EDamageType`, and pins the vitals back to 1. Logged as `[dad] refused kill (<type>)`, rate limited to one line every 5 seconds.
+- **Locality says what it thinks.** `[dad] watching controller, player=you|not you|null` once per raid, plus a single `[dad] local check hit/missed` line the first time each answer comes up. If dad mode looks asleep again, those two lines say whether the check failed or the damage never reached `ApplyDamage` at all.
+- **The locality check got a fallback.** `IsYourPlayer`, and if that flag is not set, a non-AI controller (offline has exactly one human in the raid).
+
+## 0.7.11
+
+- **The `IsAlive` guard is gone and patch registration is isolated.** Patching that setter through `ActiveHealthController` fails, because it is declared on the generic `BaseHealthController<T>`, and the throw landed in the catch shared by every registration. Every hook after it was skipped, including the world tracker, which is why Vzor looked completely absent: no ESP, no chams, no map. Dad mode registers in its own try/catch now, and the shared catch no longer claims to be about stamina.
+- **The destroy guard also refuses `Common`**, which is where blast and fall deaths land.
+
+## 0.7.10
+
+- **Dad mode blocks body part destruction.** Ported the hook from the original DadGamerMode mod: a destroyed head or chest is the death event, so it is refused and the part healed back to 1. Limbs still black out normally.
+- **Locality uses the controller's own player.** `ActiveHealthController.Player.IsYourPlayer` instead of comparing pointers against `MainPlayer`.
+
 ## 0.7.9
 
 - **Dad Gamer Mode is local only.** The clamp never checked whose health controller it was looking at, and offline SPT simulates bots with the same `ActiveHealthController`, so every bot's head and chest were floored at 1 HP too. That is also why the magic bullet stopped killing things. Every patch now compares the controller against the local player's.
