@@ -95,6 +95,8 @@ namespace Vzor
         private float _nextContainerScan;
         private int _rebuildCursor = -1;
         private int _rebuildPass;
+        private int _emptyRegistryPasses;
+        private bool _sceneScanned;
 
         private System.IntPtr _containerWorld;
         private int _contentsBudget;
@@ -564,6 +566,8 @@ namespace Vzor
                 _nextContainerScan = 0f;
                 _rebuildCursor = -1;
                 _loggedContainers = false;
+                _emptyRegistryPasses = 0;
+                _sceneScanned = false;
             }
 
             if (now >= _nextContainerScan)
@@ -588,15 +592,24 @@ namespace Vzor
                 ? _world.World._interactableObjectsForNetSync
                 : null;
 
-            // some scenes expose no registry at all. that is exactly what the scene scan fallback
-            // is for, and it has to run when the walk has nothing to walk, not only when the walk
-            // finishes empty. the hideout is one of those scenes.
+            // the registry is empty while the world is still building, which is most of the load.
+            // sweeping the scene there costs up to a hundred and forty milliseconds a go, so it
+            // happens once per world, and only after a few empty passes to be sure.
             if (source == null || source.Length == 0)
             {
                 _rebuildCursor = -1;
-                FinishContainerPass(true);
+                _emptyRegistryPasses++;
+
+                if (_emptyRegistryPasses >= 3 && !_sceneScanned)
+                {
+                    _sceneScanned = true;
+                    FinishContainerPass(true);
+                }
+
                 return;
             }
+
+            _emptyRegistryPasses = 0;
 
             var budget = 200;
 
@@ -631,8 +644,10 @@ namespace Vzor
 
             // the registry came back empty, so fall back to the scene. it costs a sweep, but this
             // happens at most once a minute and only on maps that have no registry.
-            if (_containers.Count == 0)
+            if (_containers.Count == 0 && !_sceneScanned)
             {
+                _sceneScanned = true;
+
                 var found = UnityEngine.Object.FindObjectsOfType<LootableContainer>();
                 if (found != null)
                     for (var i = 0; i < found.Length; i++) AddContainer(found[i]);

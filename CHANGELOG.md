@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.18
+
+- **The container scene-scan fallback was running during every load.** On Streets it fired ten times, 28, 42, 64, 98, 120 and 137 ms, because `_interactableObjectsForNetSync` is empty until the world finishes building and the pass treated "empty" as "this map has no registry". It now requires three empty passes and only runs once per world, so the load gets one sweep at most instead of ten.
+- Confirmed in raid: Streets tracked 998 containers, the ESP scan costs 11 ms per pass at 4 Hz, and there is no ten second rhythm in the capture. The remaining large stalls in that run line up with the death and the return to the hideout, not with a timer.
+
 ## 0.7.17
 
 - **The incremental container rebuild never fell back to a scene scan.** In 0.7.15's version, a missing `_interactableObjectsForNetSync` returned early and gave up, so on a scene without that registry the container list stayed empty and the `tracking N containers` line never appeared. That is exactly what the hideout logs show. A null or empty registry now finishes the pass immediately, runs the scene scan fallback, and says so: `loot esp: tracking N containers (no registry, scene scan)`.
