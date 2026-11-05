@@ -15,7 +15,7 @@ namespace Vzor
     public class Plugin : BasePlugin
     {
         public const string Guid = "local.vzor";
-        public const string Version = "0.7.16";
+        public const string Version = "0.7.17";
 
         internal static ManualLogSource Logger;
         internal static ConfigFile File;

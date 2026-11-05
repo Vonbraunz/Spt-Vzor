@@ -4,7 +4,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <AssemblyName>Vzor</AssemblyName>
     <RootNamespace>Vzor</RootNamespace>
-    <Version>0.7.16</Version>
+    <Version>0.7.17</Version>
     <LangVersion>latest</LangVersion>
     <Nullable>disable</Nullable>
     <ImplicitUsings>disable</ImplicitUsings>

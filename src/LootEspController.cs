@@ -95,6 +95,7 @@ namespace Vzor
         private float _nextContainerScan;
         private int _rebuildCursor = -1;
         private int _rebuildPass;
+
         private System.IntPtr _containerWorld;
         private int _contentsBudget;
         private bool _active;
@@ -129,18 +130,21 @@ namespace Vzor
 
                 var started = System.Diagnostics.Stopwatch.GetTimestamp();
                 Scan(now);
-                var ms = (System.Diagnostics.Stopwatch.GetTimestamp() - started) * 1000.0 /
-                         System.Diagnostics.Stopwatch.Frequency;
-
-                if (ms >= 10.0)
-                {
-                    Plugin.Logger.LogInfo("[timing] esp scan " + ms.ToString("0.0") + " ms, " +
-                                          _markers.Count + " markers, " + _containers.Count + " containers");
-                }
+                LogTiming("esp scan (" + _markers.Count + " markers, " + _containers.Count + " containers)",
+                          started);
             }
 
             UpdateGrenades();
             Project();
+        }
+
+        private static void LogTiming(string label, long started)
+        {
+            var ms = (System.Diagnostics.Stopwatch.GetTimestamp() - started) * 1000.0 /
+                     System.Diagnostics.Stopwatch.Frequency;
+
+            if (ms >= 10.0)
+                Plugin.Logger.LogInfo("[timing] " + label + " " + ms.ToString("0.0") + " ms");
         }
 
         private void OnGUI()
@@ -584,9 +588,13 @@ namespace Vzor
                 ? _world.World._interactableObjectsForNetSync
                 : null;
 
-            if (source == null)
+            // some scenes expose no registry at all. that is exactly what the scene scan fallback
+            // is for, and it has to run when the walk has nothing to walk, not only when the walk
+            // finishes empty. the hideout is one of those scenes.
+            if (source == null || source.Length == 0)
             {
                 _rebuildCursor = -1;
+                FinishContainerPass(true);
                 return;
             }
 
@@ -614,20 +622,29 @@ namespace Vzor
             if (_rebuildCursor < source.Length) return;
 
             _rebuildCursor = -1;
+            FinishContainerPass(false);
+        }
 
-            if (!_loggedContainers)
-            {
-                _loggedContainers = true;
-                Plugin.Logger.LogInfo("loot esp: tracking " + _containers.Count + " containers");
-            }
+        private void FinishContainerPass(bool sceneScan)
+        {
+            var started = System.Diagnostics.Stopwatch.GetTimestamp();
 
-            // the registry is empty on some maps, which is what the old findobjectsoftype path was
-            // for. it runs once per rebuild, and only when the walk found nothing at all.
+            // the registry came back empty, so fall back to the scene. it costs a sweep, but this
+            // happens at most once a minute and only on maps that have no registry.
             if (_containers.Count == 0)
             {
                 var found = UnityEngine.Object.FindObjectsOfType<LootableContainer>();
                 if (found != null)
                     for (var i = 0; i < found.Length; i++) AddContainer(found[i]);
+            }
+
+            LogTiming("container scene scan", started);
+
+            if (!_loggedContainers)
+            {
+                _loggedContainers = true;
+                Plugin.Logger.LogInfo("loot esp: tracking " + _containers.Count + " containers" +
+                                      (sceneScan ? " (no registry, scene scan)" : string.Empty));
             }
         }
 

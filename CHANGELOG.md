@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.17
+
+- **The incremental container rebuild never fell back to a scene scan.** In 0.7.15's version, a missing `_interactableObjectsForNetSync` returned early and gave up, so on a scene without that registry the container list stayed empty and the `tracking N containers` line never appeared. That is exactly what the hideout logs show. A null or empty registry now finishes the pass immediately, runs the scene scan fallback, and says so: `loot esp: tracking N containers (no registry, scene scan)`.
+- `[timing] esp scan` keeps its marker and container counts, and the fallback sweep gets its own `[timing] container scene scan` line, so a slow sweep is distinguishable from a slow incremental walk.
+- No change to the ten second fix. This is a correctness hole found by looking at hideout data, not a new hitch.
+
 ## 0.7.16
 
 - **The ten second beat is gone.** 0.7.15's capture is clean at the old rhythm: p50 16.7 ms, p99 28 ms, and the only spikes in sixty seconds are at 9.5 s and 33.6 s, twenty four seconds apart. No periodic stall.
