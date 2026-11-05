@@ -108,6 +108,9 @@ namespace Vzor
 
                     _questCandidates = null;
                     _questCandidateCount = -1;
+                    _questBuilding = false;
+                    _questBuild = null;
+                    _questBuildCursor = 0;
                     _questContainerCursor = -1;
                     _questContainerParts.Clear();
 
@@ -125,6 +128,9 @@ namespace Vzor
                     _nextExfil = now + 2f;
                     _exfilJson = world != null ? BuildExfils(world) : "[]";
                 }
+
+                // the quest list is walked a couple of quests a frame, never in one lump
+                PumpQuestCandidates(world, now);
 
                 // quest state changes as you loot and hand in, so it gets its own slow-ish tick
                 if (now >= _nextQuest)
@@ -1026,98 +1032,119 @@ namespace Vzor
         }
 
         private List<QuestEntry> _questCandidates;
+        private List<QuestEntry> _questBuild;
         private int _questCandidateCount = -1;
+        private int _questBuildCursor;
+        private int _questBuildStarted;
+        private bool _questBuilding;
         private float _questCandidatesAt;
 
         // walking every started quest's condition tree is cast heavy, and the answers do not change
-        // until a quest starts or finishes. the started count is enough of a signal for that, so
-        // the walk runs on change or every half minute, not six times a minute for a static list.
-        private List<QuestEntry> CollectCandidates(Profile profile)
+        // until a quest starts or finishes. it also used to happen in one frame, which is a hundred
+        // and ten milliseconds of main thread at the worst possible moment. two quests a frame now.
+        private void PumpQuestCandidates(GameWorld world, float now)
         {
-            if (profile == null) return _questCandidates ?? new List<QuestEntry>();
+            if (world == null) return;
+
+            var profile = world.MainPlayer != null ? world.MainPlayer.Profile : null;
+            if (profile == null) return;
 
             var data = profile.QuestsData;
-            var started = 0;
+            if (data == null) return;
 
-            if (data != null)
+            if (!_questBuilding)
             {
+                var started = 0;
+
                 for (var i = 0; i < data.Count; i++)
                 {
                     var entry = data[i];
                     if (entry != null && entry.Status == EQuestStatus.Started) started++;
                 }
+
+                if (_questCandidates != null && _questCandidateCount == started &&
+                    now < _questCandidatesAt + 30f)
+                {
+                    return;
+                }
+
+                _questBuilding = true;
+                _questBuild = new List<QuestEntry>();
+                _questBuildCursor = 0;
+                _questBuildStarted = started;
             }
 
-            var now = UnityEngine.Time.unscaledTime;
+            var budget = 2;
 
-            if (_questCandidates != null && _questCandidateCount == started && now < _questCandidatesAt + 30f)
-                return _questCandidates;
-
-            var candidates = new List<QuestEntry>();
-
-            if (data != null)
+            while (budget-- > 0 && _questBuildCursor < data.Count)
             {
                 try
                 {
-                    for (var i = 0; i < data.Count; i++)
+                    var entry = data[_questBuildCursor];
+
+                    if (entry != null && entry.Status == EQuestStatus.Started)
                     {
-                        var entry = data[i];
-                        if (entry == null) continue;
-                        if (entry.Status != EQuestStatus.Started) continue;
-
                         var quest = entry.Quest;
-                        if (quest == null) continue;
 
-                        var template = quest.Template;
-                        var questLocation = template != null ? template.LocationId : null;
-
-                        var candidate = new QuestEntry
+                        if (quest != null)
                         {
-                            Name = QuestDisplayName(quest),
-                            Status = entry.Status.ToString(),
-                            Location = questLocation,
-                            IsAny = string.IsNullOrEmpty(questLocation) ||
-                                    questLocation.Equals("any", StringComparison.OrdinalIgnoreCase),
-                            IsStory = StoryQuestFlag(template != null ? template.Id : null) ?? false,
-                            Ids = new List<string>(),
-                            Zones = new List<string>(),
-                            Locations = new List<string>(),
-                            Needs = new List<QuestNeed>()
-                        };
+                            var template = quest.Template;
+                            var questLocation = template != null ? template.LocationId : null;
 
-                        var conditions = quest.NecessaryConditions;
-                        if (conditions != null)
-                        {
-                            var enumerator = conditions.GetEnumerator();
-                            while (enumerator.MoveNext())
+                            var candidate = new QuestEntry
                             {
-                                CollectCondition(enumerator.Current, candidate);
-                            }
-                        }
+                                Name = QuestDisplayName(quest),
+                                Status = entry.Status.ToString(),
+                                Location = questLocation,
+                                IsAny = string.IsNullOrEmpty(questLocation) ||
+                                        questLocation.Equals("any", StringComparison.OrdinalIgnoreCase),
+                                IsStory = StoryQuestFlag(template != null ? template.Id : null) ?? false,
+                                Ids = new List<string>(),
+                                Zones = new List<string>(),
+                                Locations = new List<string>(),
+                                Needs = new List<QuestNeed>()
+                            };
 
-                        candidates.Add(candidate);
+                            var conditions = quest.NecessaryConditions;
+                            if (conditions != null)
+                            {
+                                var enumerator = conditions.GetEnumerator();
+                                while (enumerator.MoveNext())
+                                {
+                                    CollectCondition(enumerator.Current, candidate);
+                                }
+                            }
+
+                            _questBuild.Add(candidate);
+                        }
                     }
                 }
                 catch
                 {
-                    // quest data mid update
+                    // quest mid update
                 }
+
+                _questBuildCursor++;
             }
 
-            _questCandidates = candidates;
-            _questCandidateCount = started;
+            if (_questBuildCursor < data.Count) return;
+
+            _questCandidates = _questBuild;
+            _questCandidateCount = _questBuildStarted;
             _questCandidatesAt = now;
+            _questBuild = null;
+            _questBuilding = false;
 
-            return candidates;
+            // the json has to be rebuilt from the finished list on the next tick
+            _nextQuest = 0f;
         }
-
         private string BuildQuestData(GameWorld world)
         {
             var started = System.Diagnostics.Stopwatch.GetTimestamp();
 
             var locationId = SafeLocationId(world);
             var profile = world.MainPlayer != null ? world.MainPlayer.Profile : null;
-            var candidates = CollectCandidates(profile);
+            var candidates = _questCandidates ?? new List<QuestEntry>();
 
             LogTiming("quest candidates", started);
 

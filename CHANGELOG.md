@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.19
+
+- **The ESP stops asking the config for the same answer a thousand times.** Every container and every loot item was reading up to ten `ConfigEntry.Value`s per pass, which on Streets is 998 containers and around 1294 items, four times a second. The values are snapshotted once per scan pass into fields now, including the category switches as a lookup table instead of a switch over config reads.
+- **The quest candidate walk is spread across frames.** The first web map quest build was 168.6 ms in one lump (109.4 of it walking condition trees). It now processes two quests per frame and swaps the finished list in when done, so the raid start no longer eats a fifth of a second in one go.
+- **Chams is timed.** `[timing] chams tick` logs when the material rebuild and repaint pass goes over ten milliseconds, which is the last unmeasured steady-state cost in the plugin.
+
 ## 0.7.18
 
 - **The container scene-scan fallback was running during every load.** On Streets it fired ten times, 28, 42, 64, 98, 120 and 137 ms, because `_interactableObjectsForNetSync` is empty until the world finishes building and the pass treated "empty" as "this map has no registry". It now requires three empty passes and only runs once per world, so the load gets one sweep at most instead of ten.

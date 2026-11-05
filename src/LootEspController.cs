@@ -100,6 +100,26 @@ namespace Vzor
 
         private System.IntPtr _containerWorld;
         private int _contentsBudget;
+
+        // config entries are cheap once and expensive a thousand times. every hot loop reads these
+        // snapshots instead, refilled once per scan pass.
+        private bool _occlusion;
+        private bool _showItems;
+        private bool _showCorpses;
+        private bool _questOnly;
+        private bool _highValueOnly;
+        private bool _showQuestProgress;
+        private bool _showValue;
+        private bool _instantSearch;
+        private bool _scanContents;
+        private bool _useLivePrices;
+        private string _priceFile;
+        private int _minValue;
+        private int _highValueThreshold;
+        private float _questDistance;
+        private float _contentsDistance;
+        private int _labelLength;
+        private readonly bool[] _categoryOn = new bool[16];
         private bool _active;
         private bool _loggedCamera;
         private bool _loggedScan;
@@ -321,6 +341,8 @@ namespace Vzor
             _valueFiltered = 0;
             _contentsBudget = 4;
 
+            SnapshotConfig();
+
             ItemTargets.Refresh(_world, now);
 
             if (Plugin.EspItems.Value || Plugin.EspCorpses.Value)
@@ -366,6 +388,38 @@ namespace Vzor
             }
         }
 
+        private void SnapshotConfig()
+        {
+            _occlusion = Plugin.EspOcclusion.Value;
+            _showItems = Plugin.EspItems.Value;
+            _showCorpses = Plugin.EspCorpses.Value;
+            _questOnly = Plugin.EspQuestOnly.Value;
+            _highValueOnly = Plugin.EspHighValueOnly.Value;
+            _showQuestProgress = Plugin.EspShowQuestProgress.Value;
+            _showValue = Plugin.EspShowValue.Value;
+            _instantSearch = Plugin.QolInstantSearch.Value;
+            _scanContents = Plugin.EspScanContents.Value;
+            _useLivePrices = Plugin.EspUseLivePrices.Value;
+            _priceFile = Plugin.EspPriceFile.Value;
+            _minValue = Plugin.EspMinValue.Value;
+            _highValueThreshold = Plugin.EspHighValueThreshold.Value;
+            _questDistance = Plugin.EspQuestDistance.Value;
+            _contentsDistance = Plugin.EspContentsDistance.Value;
+            _labelLength = Plugin.EspLabelLength.Value;
+
+            _categoryOn[(int)Category.Weapon] = Plugin.EspShowWeapons.Value;
+            _categoryOn[(int)Category.Ammo] = Plugin.EspShowAmmo.Value;
+            _categoryOn[(int)Category.Medical] = Plugin.EspShowMedical.Value;
+            _categoryOn[(int)Category.Food] = Plugin.EspShowFood.Value;
+            _categoryOn[(int)Category.Key] = Plugin.EspShowKeys.Value;
+            _categoryOn[(int)Category.Gear] = Plugin.EspShowGear.Value;
+            _categoryOn[(int)Category.Barter] = Plugin.EspShowBarter.Value;
+            _categoryOn[(int)Category.Mods] = Plugin.EspShowMods.Value;
+            _categoryOn[(int)Category.Quest] = Plugin.EspShowQuest.Value;
+            _categoryOn[(int)Category.Wishlist] = Plugin.EspShowQuest.Value;
+            _categoryOn[(int)Category.Other] = Plugin.EspShowOther.Value;
+        }
+
         private void ScanLoot(Vector3 camPos, Il2CppStructArray<Plane> planes, bool viewOnly, float lootDistance)
         {
             var loot = _world.LootItems;
@@ -374,7 +428,7 @@ namespace Vzor
             var list = loot._iteration;
             if (list == null) return;
 
-            var occlusion = Plugin.EspOcclusion.Value;
+            var occlusion = _occlusion;
 
             for (var i = 0; i < list.Count; i++)
             {
@@ -391,7 +445,7 @@ namespace Vzor
                     var corpse = entry.TryCast<Corpse>();
                     if (corpse != null)
                     {
-                        if (!Plugin.EspCorpses.Value) continue;
+                        if (!_showCorpses) continue;
                         if (!IsCandidate(pivot, pivotDistance, lootDistance, false, planes, viewOnly)) continue;
 
                         var center = VisualCenter(entry);
@@ -409,23 +463,23 @@ namespace Vzor
                         continue;
                     }
 
-                    if (!Plugin.EspItems.Value) continue;
+                    if (!_showItems) continue;
 
                     var label = ItemLabel(entry, out var value, out var category);
                     _scannedLoot++;
 
-                    if (!IsCategoryEnabled(category)) continue;
+                    if (!_categoryOn[(int)category]) continue;
 
-                    if (Plugin.EspQuestOnly.Value && category != Category.Quest && category != Category.Wishlist)
+                    if (_questOnly && category != Category.Quest && category != Category.Wishlist)
                         continue;
 
-                    if (Plugin.EspMinValue.Value > 0 && value < Plugin.EspMinValue.Value)
+                    if (_minValue > 0 && value < _minValue)
                     {
                         _valueFiltered++;
                         continue;
                     }
 
-                    if (Plugin.EspHighValueOnly.Value && value < Plugin.EspHighValueThreshold.Value)
+                    if (_highValueOnly && value < _highValueThreshold)
                     {
                         _valueFiltered++;
                         continue;
@@ -438,9 +492,9 @@ namespace Vzor
 
                     if (category == Category.Quest)
                     {
-                        limit = Plugin.EspQuestDistance.Value;
+                        limit = _questDistance;
                     }
-                    else if (value > 0 && value >= Plugin.EspHighValueThreshold.Value)
+                    else if (value > 0 && value >= _highValueThreshold)
                     {
                         unlimited = true;
                     }
@@ -455,16 +509,16 @@ namespace Vzor
                     if (!IsSane(itemCenter)) continue;
                     if (occlusion && !Visibility.HasLineOfSight(camPos, itemCenter, entry.transform)) continue;
 
-                    if (Plugin.EspShowQuestProgress.Value &&
+                    if (_showQuestProgress &&
                         ItemTargets.Progress.TryGetValue(entry.TemplateId, out var progress) &&
                         progress.Required > 0)
                     {
                         label += " [" + progress.Current + "/" + progress.Required + "]";
                     }
 
-                    if (Plugin.EspShowValue.Value && value > 0) label += " [" + value / 1000 + "K]";
+                    if (_showValue && value > 0) label += " [" + value / 1000 + "K]";
 
-                    label = Shorten(label, Plugin.EspLabelLength.Value);
+                    label = Shorten(label, _labelLength);
 
                     _markers.Add(new Marker
                     {
@@ -497,7 +551,7 @@ namespace Vzor
 
                     // the interaction state is where the search timer lives. zero it while the
                     // container is close, because opening one rebuilds the duration.
-                    if (Plugin.QolInstantSearch.Value && distance <= 15f)
+                    if (_instantSearch && distance <= 15f)
                     {
                         try
                         {
@@ -515,16 +569,16 @@ namespace Vzor
                     }
 
                     if (!IsCandidate(position, distance, lootDistance, false, planes, viewOnly)) continue;
-                    if (Plugin.EspOcclusion.Value && !Visibility.HasLineOfSight(camPos, position, _containers[i].transform)) continue;
+                    if (_occlusion && !Visibility.HasLineOfSight(camPos, position, _containers[i].transform)) continue;
 
                     // contents are read lazily, only when the container is close, and refreshed
                     // every 10 seconds so it tracks what you have already taken out of it. the
                     // budget keeps a rebuild from reading every nearby container in one frame.
-                    if (Plugin.EspScanContents.Value && _contentsBudget > 0 && now >= _containerContentsAt[i] &&
-                        distance <= Plugin.EspContentsDistance.Value)
+                    if (_scanContents && _contentsBudget > 0 && now >= _containerContentsAt[i] &&
+                        distance <= _contentsDistance)
                     {
                         _contentsBudget--;
-                        if (Plugin.EspUseLivePrices.Value) PriceDatabase.EnsureLoaded(Plugin.EspPriceFile.Value);
+                        if (_useLivePrices) PriceDatabase.EnsureLoaded(_priceFile);
 
                         ComputeContents(_containers[i], out var count, out var value);
                         _containerValues[i] = value;
@@ -533,8 +587,8 @@ namespace Vzor
                         _containerNames[i] = BuildContainerName(_containers[i], count, value);
                     }
 
-                    if (Plugin.EspHighValueOnly.Value && Plugin.EspScanContents.Value &&
-                        _containerValues[i] >= 0 && _containerValues[i] < Plugin.EspHighValueThreshold.Value) continue;
+                    if (_highValueOnly && _scanContents &&
+                        _containerValues[i] >= 0 && _containerValues[i] < _highValueThreshold) continue;
 
                     _markers.Add(new Marker
                     {
@@ -1471,23 +1525,6 @@ namespace Vzor
                     return ColorUtil.Parse(Plugin.EspWishlistColor.Value, new Color(0f, 1f, 0.66f));
                 default:
                     return ColorUtil.Parse(Plugin.EspItemColor.Value, new Color(0f, 1f, 0.5f));
-            }
-        }
-
-        private static bool IsCategoryEnabled(Category category)
-        {
-            switch (category)
-            {
-                case Category.Weapon: return Plugin.EspShowWeapons.Value;
-                case Category.Ammo: return Plugin.EspShowAmmo.Value;
-                case Category.Medical: return Plugin.EspShowMedical.Value;
-                case Category.Food: return Plugin.EspShowFood.Value;
-                case Category.Key: return Plugin.EspShowKeys.Value;
-                case Category.Gear: return Plugin.EspShowGear.Value;
-                case Category.Barter: return Plugin.EspShowBarter.Value;
-                case Category.Mods: return Plugin.EspShowMods.Value;
-                case Category.Quest: return Plugin.EspShowQuest.Value;
-                default: return Plugin.EspShowOther.Value;
             }
         }
 

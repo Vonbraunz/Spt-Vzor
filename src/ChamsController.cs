@@ -97,8 +97,17 @@ namespace Vzor
             if (now < _nextTick) return;
             _nextTick = now + Mathf.Max(0.05f, Plugin.RefreshInterval.Value);
 
+            // this pass allocates a material per renderer, so it is worth knowing what it costs
+            var started = System.Diagnostics.Stopwatch.GetTimestamp();
+
             RebuildMaterial(false);
             Repaint();
+
+            var ms = (System.Diagnostics.Stopwatch.GetTimestamp() - started) * 1000.0 /
+                     System.Diagnostics.Stopwatch.Frequency;
+
+            if (ms >= 10.0)
+                Plugin.Logger.LogInfo("[timing] chams tick " + ms.ToString("0.0") + " ms");
         }
 
         private bool EnsureReady()
